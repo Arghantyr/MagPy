@@ -1,0 +1,18 @@
+# Env files
+.env
+
+# Text files
+*.txt
+
+# Secrets
+.ssh/
+secret.yaml
+
+# Test files and directories
+test_user_old/
+Dockerfile-ubuntu
+repo/
+WorldAnvil-repo/
+
+#Helper scripts
+destroy_maug.sh

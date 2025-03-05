@@ -1,0 +1,105 @@
+services:
+  ubuntu:
+    #TODO
+    #cały gitworker i jego skrypt przepisane tak, by działać jako root
+    #Nie byłem w stanie uporządkować uprawnień tak, by w kontenerze działał test_user
+    #przy jednoczesnym dostępie do volume w postaci trwałego zapisu repo na dysku hosta.
+    #Być może to temat do powrotu na kiedy indziej.
+    #Dużym źródłem problemu (i featurem bezpieczeństwa Dockera) jest tworzenie nowych folderów,
+    #nie istniejących uprzednio na hoście jako należących do root:root.
+    #Szkoda czasu na tą zabawę...
+    #
+    #image: ubuntu-maug-stack:0.4.6
+    build:
+      context: ./gitworker
+      dockerfile: Dockerfile
+      args:
+        - USERID=${UID}
+        - GROUPID=${GID}
+        - USERNAME=${USERNAME}
+        - REMOTE_REPOSITORY_USERNAME=${REMOTE_REPO_USERNAME}
+        - REMOTE_REPOSITORY_NAME=${REMOTE_REPO_NAME}
+    container_name: ubuntu
+    restart: always
+    entrypoint: "tail -F /dev/null & && /var/initiate_gitworker.sh"
+    ports:
+      - 22:22/tcp
+        #- 80:80/tcp
+      - 443:443/tcp
+    networks:
+      - repo-net
+    volumes:
+      #- ./gitworker/secret.yaml:/var/secret.yaml:ro
+      - ./gitworker/.ssh:/home/${USERNAME}/.ssh
+        # repo przenieść do /var/gitworker/repo; są problemy z uprawnieniami w folderze poniżej repo
+      - ./gitworker/repo:/home/${USERNAME}/repo 
+    logging:
+      driver: "json-file"
+      options:
+        max-size: 10m
+        max-file: "3"
+        labels: "production_status"
+        env: "os"
+    labels:
+      production_status: "testing"
+    environment:
+      - OS=ubuntu
+      - DISH=rumsztyk
+        #- USERID=${UID}
+        #- GROUPID=${GID}
+        #  alpine:
+    #user: '1000'
+    #image: alpine-git-repo:0.1
+    #container_name: alpine
+    #restart: always
+    #command: "tail -F /dev/null"
+    #ports:
+    #  - 1080:80/tcp
+    #  - 1443:443/tcp
+    #networks:
+    #  - repo-net
+    #depends_on:
+    #  - ubuntu
+  mysql:
+    #user: '1000'
+    image: mysql:9.2.0
+    container_name: mysql
+    restart: always
+      # TODO
+      #
+      # Rozważyć odpalenie skryptu Pythonowego/bashowego, który przygotowuje bazę mysql
+      # Ze wszystkimni rolami, użytkownikami, itd.
+    environment:
+      MYSQL_DATABASE: 'initial_db'
+      MYSQL_USER: 'user'
+      MYSQL_PASSWORD: 'userpassword'
+      MYSQL_ROOT_PASSWORD: 'rootpassword'
+    ports:
+      - '3306:3306'
+    expose:
+      - '3306'
+    networks:
+      - repo-net
+      - viz-net
+    depends_on:
+      - ubuntu
+  grafana:
+    #user: '1000'
+    image: grafana/grafana:11.4.0
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    networks:
+      - viz-net
+    depends_on:
+      - mysql
+
+networks:
+  repo-net:
+    driver: bridge
+  viz-net:
+    driver: bridge
+
+volumes:
+  repo:
