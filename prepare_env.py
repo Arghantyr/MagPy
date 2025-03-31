@@ -1,13 +1,5 @@
 import yaml
 
-#echo UID="$(id -u)" > ./.env
-#echo GID="$(id -g)" >> ./.env
-#echo USERNAME=gitworker >> ./.env
-#echo REMOTE_REPO_USERNAME=Arghantyr >> .env
-#echo REMOTE_REPO_NAME=WorldAnvil-repo >> .env
-#echo REMOTE_REPO_SSH_URL='git@github.com:Arghantyr/WorldAnvil-repo.git' >> .env
-#cat ./.env
-
 with open('./secret.yaml', mode='r') as file:
     secret_yaml=yaml.load(file, yaml.Loader)
 
