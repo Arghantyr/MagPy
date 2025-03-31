@@ -1,18 +1,13 @@
 # Env files
 .env
 
-# Text files
-*.txt
-
 # Secrets
-.ssh/
-secret.yaml
+.ssh/*
+secret*
 
 # Test files and directories
-test_user_old/
+test*
 Dockerfile-ubuntu
-repo/
-WorldAnvil-repo/
 
-#Helper scripts
-destroy_maug.sh
+# Repository entries
+repo/*
