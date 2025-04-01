@@ -6,6 +6,19 @@ from datetime import datetime
 from  pywaclient.api import BoromirApiClient
 import git
 from hashlib import sha1
+import logging
+import sys
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
+
 
 SCRIPT_NAME='gitworker.py'
 MAGPY_REPO_URL='https://github.com/Arghantyr/MagPy'
@@ -28,7 +41,10 @@ class Secrets:
             self.api_token=secrets['credentials']['api_token']
             self.repo_ssh_url=secrets['remote_repo']['remote_repository_url']
             self.worlds_list=secrets['track']['worlds']
+            
+            logging.info("Secrets loaded.")
         except Exception as e:
+            logging.warning("Unable to process 'secrets' file.")
             raise Exceptions(f"{e}")
 
 
@@ -38,16 +54,22 @@ class Gitworker:
         self.load_repo()
         self.validate_repo_settings()
         self.initiate_commit_backend()
+
+        logging.info("Gitworker object initiated.")
     def load_secret(self, secret_obj:Secrets=None):
         try:
             self.repo_ssh_url=secret_obj.repo_ssh_url
+            logging.info("Gitworker: secrets loaded...")
         except Exception as e:
+            logging.warning("Gitworker: unable to load secrets")
             raise Exceptions(f"{e}")
     def load_repo(self):
         try:
             self.remote_repo_name=self.repo_ssh_url.rstrip('.git').split('/')[-1]
             self.repo=git.Repo(f"{REPO_PATH}/{self.remote_repo_name}")
+            logging.info("Gitworker: repository object set...")
         except Exception as e:
+            logging.warning("Gitworker: unable to load repository")
             raise Exception(f"{e}")
     def validate_repo_settings(self):
         try:
@@ -55,22 +77,27 @@ class Gitworker:
             if remote_repo_set:
                 self.remote=self.repo.remote('github-repo')
             self.repo.heads['main'].checkout()
+            logging.info("Gitworker: remote repository validated...")
         except Exception as e:
+            logging.warning("Gitworker: unable to validate remote repository")
             raise Exception(f"{e}")
     def initiate_commit_backend(self):
         try:
             self.commit_message=""
             self.index_list=['hash_reg']
-            pass
+            logging.info("Gitworker: commit message and index initiated...")
         except Exception as e:
+            logging.warning("Gitworker: unable to initiate commit message and index")
             raise Exception(f"{e}")
 
     # Metadata and supporting functions
     def get_uuid_objhash(self, uuid:str="00000000-0000-0000-0000-000000000000", content:str="{}"):
         try:
             obj_hash=sha1(json.dumps(content, ensure_ascii=False).encode('utf-8')).hexdigest()
+            logging.info(f"Calculated hash for object string. UUID: {uuid}, hash: {obj_hash}")
             return uuid, obj_hash
         except Exception as e:
+            logging.warning(f"Unable to calculate hash. UUID: {uuid}.")
             raise Exception(f"{e}")
 
     # Index list section
@@ -78,25 +105,33 @@ class Gitworker:
         try:
             if element != '':
                 self.index_list.append(element)
+                logging.info(f"Added element to git index: {element}")
             else:
+                logging.warning(f"Unable to add element to git index: {element}")
                 raise Exception(f"Invalid element value. Index update aborted.")
         except Exception as e:
+            logging.warning("Unable to update list of git tracked indexes")
             raise Exception(f"{e}")
     def add_to_index(self):
         try:
             self.repo.index.add(self.index_list)
+            logging.info(f"Update git index with the list of tracked objects: {index_list}")
         except Exception as e:
+            logging.warning(f"Unable to update the git index.")
             raise Exception(f"{e}")
 
     # Commit section
     def update_commit_message(self, message:str=""):
         try:
             self.commit_message += ''.join([message, '\n'])
+            logging.info(f"Updated the commit message")
         except Exception as e:
+            logging.warning(f"Unable to update the commit message")
             raise Exception(f"{e}")
     def flush_commit_message(self):
         try:
             self.commit_message=""
+            logging.info(f"Commit message reset.")
         except Exception as e:
             raise Exception(f"{e}")
     def post_commit(self, short_commit_message:str="Object update"):
@@ -105,8 +140,10 @@ class Gitworker:
                                             '\n\n',
                                             self.commit_message])
                                    )
+            logging.info(f"Commit posted: {short_commit_message} {self.commit_message[:20]}...")
             self.flush_commit_message()
         except Exception as e:
+            logging.warning(f"Unable to post commit")
             raise Exception(f"{e}")
 
     # Stored object section
@@ -116,11 +153,17 @@ class Gitworker:
                 hash_reg=json.load(_hash_reg)
             stored_hash=hash_reg.get(uuid)
             _, current_hash=self.get_uuid_objhash(uuid, content)
+
+            result=None
             if stored_hash==current_hash:
-                return True
+                result=True
             else:
-                return False
+                result=False
+
+            logging.info(f"Comparing hash for uuid {uuid}. Stored: {stored_hash}, current: {current_hash} with result: {result}")
+            return result
         except Exception as e:
+            logging.warning(f"Unable to compare hash values for uuid: {uuid}")
             raise Exception(f"{e}")
     def update_repo_object(self, uuid:str="00000000-0000-0000-0000-000000000000", new_content:str="{}"):
         try:
@@ -128,7 +171,9 @@ class Gitworker:
                 new_content_str=json.dumps(new_content, indent=2)
                  
                 file.write(new_content_str)
+            logging.info(f"Object with uuid: {uuid} updated in the local repository.")
         except Exception as e:
+            logging.warning(f"Unable to update local repo for uuid: {uuid}")
             raise Exception(f"{e}") 
     def update_hash_reg(self, uuid:str="00000000-0000-0000-0000-000000000000", new_content:str="{}"):
         try:
@@ -139,13 +184,17 @@ class Gitworker:
             with open(f'{REPO_PATH}/{self.remote_repo_name}/hash_reg', mode='w') as _hash_reg:
                 hash_reg[uuid]=object_hash
                 json.dump(hash_reg, _hash_reg)
+            logging.info(f"Hash registry updated for {uuid}: {object_hash}.")
         except Exception as e:
+            logging.warning(f"Unable to modify hash registry.")
             raise Exception(f"{e}")
     def push_to_remote_repository(self):
         try:
             with self.repo.git.custom_environment(GIT_SSH_COMMAND=f'ssh -i {SSH_ID_FILE}'):
                 self.remote.push()
+            logging.info(f"Pushing commits to remote repository")
         except Exception as e:
+            logging.warning(f"Unable to push to remote repository")
             raise Exception(f"{e}")
 
 
