@@ -207,36 +207,48 @@ class WAClient:
                                          api_key,
                                          api_token
                                          )
+            logging.info(f"WAClient initiated...")
         except Exception as e:
+            logiing.warning(f"Could not initiate WAClient")
             raise Exception(f"{e}")
     def get_auth_user_id(self):
         try:
+            logging.info(f"Fetching User identity...")
             return self.client.user.identity()
         except Exception as e:
+            logging.warning(f"Could not fetch user identity")
             raise Exception(f"{e}")
     def get_user_worlds(self, user_id:str=''):
         try:
+            logging.info(f"Fetching worlds owned by user {user_id}")
             return self.client.user.worlds(user_id)
         except Exception as e:
+            logging.warning(f"Could not fetch worlds for user {user_id}")
             raise Exception(f"{e}")
     def get_world(self, world_uuid:str='', granularity:int=-1):
         try:
+            logging.info(f"World object fetched. UUID: {world_uuid}, GRANULARITY: {granularity}")
             return self.client.world.get(world_uuid, granularity)
         except Exception as e:
+            logging.warning(f"Could not fetch world object. UUID: {world_uuid}, GRANULARITY: {granularity}")
             raise Exception(f"{e}")
     def get_world_categories_mapping(self, world_uuid:str=''):
         try:
             categories = [category['id'] for category in self.client.world.categories(world_uuid)]
             categories.append('-1')
+            logging.info(f"Categories fetched for world {world_uuid}: {', '.join(categories)}")
             return {world_uuid: categories}
         except Exception as e:
+            logging.warning(f"Could not fetch categories for world {world_uuid}")
             raise Exception(f"{e}")
     def get_category_articles_mapping(self, world_uuid:str='', category_uuids:list=[]):
         try:
             articles_mapping={cat_uuid: [art for art in self.client.category.articles(world_uuid, category_uuid)
                                          ] for cat_uuid in category_uuids}
+            logging.info(f"Fetched category-article mapping for world {world_uuid}:\n{json.dumps(articles_mapping, indent=2)}")
             return articles_mapping
         except Exception as e:
+            logging.warning(f"Could not process category-article mapping for world {world_uuid} and categories: {', '.join(category_uuids)}")
             raise Exception(f"{e}")
 
 
@@ -257,36 +269,48 @@ class TrackWorld:
 
             self.set_track_granularities()
             self.set_beacon_granularities()
+            logging.info(f">>> TrackWorld object initiated for world {self.world_uuid} owned by user {self.user_id}. Track changes settings:\n{json.dumps(self.track_changes, indent=2)}")
         except Exception as e:
+            logging.warning(f"TrackWorld object could not be created")
             raise Exception(f"{e}")
     def load_auth_user_id(self):
         try:
             self.auth_user_id=self.client.get_auth_user_id()['id']
+            logging.info(f"ID fetched for the authenticated user.")
         except Exception as e:
+            logging.warning(f"Could not fetch ID for the authenticated user")
             raise Exception(f"{e}")
     def load_world_uuid(self):
         try:
             worlds={world['url']: world['id'] for world in self.client.get_user_worlds(self.auth_user_id)}
              
             self.world_uuid=worlds[self.url]
+            logging.info(f"ID loaded for the selected world: {self.world_uuid}")
         except Exception as e:
+            logging.warning(f"Could not load world id for the selected world")
             raise Exception(f"{e}")
     def load_category_mapping(self, track:bool=False):
         try:
             if track:
+                logging.info(f"Category tracking: ON. Fetching category mapping...")
                 self.category_mapping=self.client.get_world_categories_mapping(self.world_uuid)
             else:
+                logging.info(f"Category tracking: OFF.")
                 pass
         except Exception as e:
+            logging.warning(f"Could not load category mapping: {e}")
             raise Exception(f"{e}")
     def load_articles_dict(self, track:bool=False):
         try:
             if track:
+                logging.info(f"Articles tracking: ON. Fetching article mapping...")
                 category_uuids=self.category_mapping(self.world_uuid)
                 self.articles_mapping=self.client.get_category_artcles_mapping(self.world_uuid, category_uuids)
             else:
+                logging.info(f"Articles tracking: OFF.")
                 pass
         except Exception as e:
+            logging.warning(f"Could not load article mapping: {e}")
             raise Exception(f"{e}") 
     def set_track_granularities(self):
         try:
@@ -295,7 +319,9 @@ class TrackWorld:
                     'category': 1,
                     'article': 1
             }
+            logging.info(f"Tracking granularities set:\n{json.dumps(self.track_gran, indent=2)}")
         except Exception as e:
+            logging.warning(f"Could not set tracking granularities: {e}")
             raise Exception(f"{e}")
     def set_beacon_granularities(self):
         try:
@@ -304,6 +330,7 @@ class TrackWorld:
                     'category': -1,
                     'article': -1
             }
+            logging.info(f"Beacon granularities set:\n{json.dumps(self.beacon_gran, indent=2)}")
             assert all([self.beacon_gran[prop] <= self.track_gran[prop] for prop in self.track_gran.keys()]) == True
         except AssertionError:
             raise Exception("Invalid granularity settings. Beacon must be <= than Track.")
@@ -313,10 +340,13 @@ class TrackWorld:
         try: 
             uuid=self.world_uuid
             beacon=self.client.get_world(uuid, self.beacon_gran['world'])
-        
+            logging.info(f">>> Resolving World Object Tracking <<<")
             if not gitworker.compare_object_hash(uuid, beacon):
+                logging.info(f">> Beacon hash condition satisfied <<")
                 content=self.client.get_world(uuid, self.track_gran['world'])
                 if not gitworker.compare_object_hash(uuid, content):
+                    logging.info(f"> Content hash condition satisfied <")
+
                     gitworker.update_repo_object(uuid, content)
                     gitworker.update_hash_reg(uuid, content)
                     gitworker.update_index_list(uuid)
@@ -325,9 +355,10 @@ class TrackWorld:
 
                     gitworker.post_commit(short_commit_message='World update')
                     gitworker.push_to_remote_repository()
-                else :
+                else:
                     pass
         except Exception as e:
+            logging.warning(f"Could not resolve world object tracking: {e}")
             raise Exception(f"{e}")
     def resolve_categories(self, gitworker:Gitworker=None):
         try:
