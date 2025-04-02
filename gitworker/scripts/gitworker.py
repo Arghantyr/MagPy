@@ -269,7 +269,7 @@ class TrackWorld:
 
             self.set_track_granularities()
             self.set_beacon_granularities()
-            logging.info(f">>> TrackWorld object initiated for world {self.world_uuid} owned by user {self.user_id}. Track changes settings:\n{json.dumps(self.track_changes, indent=2)}")
+            logging.info(f">>> TrackWorld object initiated for world {self.world_uuid} owned by user {self.auth_user_id}. Track changes settings:\n{json.dumps(self.track_changes, indent=2)}")
         except Exception as e:
             logging.warning(f"TrackWorld object could not be created")
             raise Exception(f"{e}")
