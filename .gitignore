@@ -5,6 +5,10 @@
 .ssh/*
 secret*
 
+# Gitworker secrets
+gitworker/.ssh/agent*
+gitworker/.ssh/id*
+
 # Test files and directories
 test*
 Dockerfile-ubuntu
