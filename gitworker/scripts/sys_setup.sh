@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo 'Initiating sys_setup.sh'
-cd /home/$USERNAME/repo
+cd /home/gitworker/repo
 
 echo "Preparing for cloning of $REMOTE_REPO_SSH_URL to $REMOTE_REPOSITORY_NAME"
 git clone $REMOTE_REPO_SSH_URL

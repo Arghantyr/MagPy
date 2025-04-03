@@ -7,11 +7,11 @@ ssh-agent -s | tee agent.env
 eval "$(cat agent.env)"
 
 source agent.env
-ssh-add /home/$USERNAME/.ssh/id_rsa
+ssh-add /home/gitworker/.ssh/id_rsa
 
-cd /home/$USERNAME/gitworker-venv
+cd /home/gitworker/gitworker-venv
 source ./bin/activate
 
-./bin/python3 /opt/$USERNAME/scripts/gitworker.py
+./bin/python3 /opt/gitworker/scripts/gitworker.py
 
 echo "Gitworker initiated..."

@@ -11,7 +11,6 @@ ARG REMOTE_REPO_SSH_URL
 
 ENV REMOTE_REPOSITORY_NAME=$REMOTE_REPOSITORY_NAME
 ENV REMOTE_REPO_SSH_URL=$REMOTE_REPO_SSH_URL
-ENV USERNAME=gitworker
 
 RUN useradd --uid $USERID --shell /bin/bash -U -m --home-dir /home/gitworker gitworker && \
     apt-get update && \

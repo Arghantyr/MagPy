@@ -1,9 +1,9 @@
 #!/bin/bash
 
 
-chmod u=rwx,go=rx /opt/$USERNAME/scripts/sys_setup.sh
-/bin/bash /opt/$USERNAME/scripts/sys_setup.sh
+chmod u=rwx,go=rx /opt/gitworker/scripts/sys_setup.sh
+/bin/bash /opt/gitworker/scripts/sys_setup.sh
 
 
-chmod u=rwx,go=rx /opt/$USERNAME/scripts/initiate_gitworker.sh
-/bin/bash /opt/$USERNAME/scripts/initiate_gitworker.sh
+chmod u=rwx,go=rx /opt/gitworker/scripts/initiate_gitworker.sh
+/bin/bash /opt/gitworker/scripts/initiate_gitworker.sh
