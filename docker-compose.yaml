@@ -6,7 +6,6 @@ services:
       args:
         - USERID=${UID}
         - GROUPID=${GID}
-        - USERNAME=${USERNAME}
         - REMOTE_REPOSITORY_NAME=${REMOTE_REPO_NAME}
         - REMOTE_REPO_SSH_URL=${REMOTE_REPO_SSH_URL}
     ports:
@@ -15,8 +14,8 @@ services:
     networks:
       - repo-net
     volumes:
-      - ./gitworker/.ssh:/home/${USERNAME}/.ssh
-      - ./gitworker/repo:/home/${USERNAME}/repo
+      - ./gitworker/.ssh:/home/gitworker/.ssh
+      - ./gitworker/repo:/home/gitworker/repo
     secrets:
       - secret_config
 

@@ -5,37 +5,36 @@ SHELL ["/bin/bash", "-c"]
 
 ARG USERID
 ARG GROUPID
-ARG USERNAME
 ARG REMOTE_REPOSITORY_USERNAME
 ARG REMOTE_REPOSITORY_NAME
 ARG REMOTE_REPO_SSH_URL
 
 ENV REMOTE_REPOSITORY_NAME=$REMOTE_REPOSITORY_NAME
 ENV REMOTE_REPO_SSH_URL=$REMOTE_REPO_SSH_URL
-ENV USERNAME=$USERNAME
+ENV USERNAME=gitworker
 
-RUN useradd --uid $USERID --shell /bin/bash -U -m --home-dir /home/$USERNAME $USERNAME && \
+RUN useradd --uid $USERID --shell /bin/bash -U -m --home-dir /home/gitworker gitworker && \
     apt-get update && \
     apt-get install -y python3.12 python3-pip && apt-get update && \
     apt-get install -y python3-venv git python3-yaml && apt-get update && \
-    mkdir /opt/$USERNAME && chown $USERNAME /opt/$USERNAME
+    mkdir /opt/gitworker && chown gitworker /opt/gitworker
 
 
-USER $USERNAME
+USER gitworker
 
-COPY --chown=$USERNAME ./hash_reg /home/$USERNAME/repo/hash_reg
+COPY --chown=gitworker ./hash_reg /home/gitworker/repo/hash_reg
 
-WORKDIR /home/$USERNAME
+WORKDIR /home/gitworker
 RUN python3 -m venv gitworker-venv
-COPY --chown=$USERNAME ./requirements.txt ./gitworker-venv/requirements.txt
+COPY --chown=gitworker ./requirements.txt ./gitworker-venv/requirements.txt
 RUN source ./gitworker-venv/bin/activate && \
     ./gitworker-venv/bin/pip3 install -r ./gitworker-venv/requirements.txt
 
-COPY --chown=$USERNAME ./scripts/sys_setup.sh /opt/$USERNAME/scripts/sys_setup.sh
-COPY --chown=$USERNAME ./scripts/gitworker.py /opt/$USERNAME/scripts/gitworker.py
-COPY --chown=$USERNAME ./scripts/initiate_gitworker.sh /opt/$USERNAME/scripts/initiate_gitworker.sh
-COPY --chown=$USERNAME ./scripts/entrypoint.sh /opt/$USERNAME/scripts/entrypoint.sh
+COPY --chown=gitworker ./scripts/sys_setup.sh /opt/gitworker/scripts/sys_setup.sh
+COPY --chown=gitworker ./scripts/gitworker.py /opt/gitworker/scripts/gitworker.py
+COPY --chown=gitworker ./scripts/initiate_gitworker.sh /opt/gitworker/scripts/initiate_gitworker.sh
+COPY --chown=gitworker ./scripts/entrypoint.sh /opt/gitworker/scripts/entrypoint.sh
 
-WORKDIR /opt/$USERNAME/scripts
+WORKDIR /opt/gitworker/scripts
 RUN chmod +x ./entrypoint.sh
 ENTRYPOINT ./entrypoint.sh
