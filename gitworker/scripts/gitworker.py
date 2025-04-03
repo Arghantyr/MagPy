@@ -84,7 +84,7 @@ class Gitworker:
     def initiate_commit_backend(self):
         try:
             self.commit_message=""
-            self.index_list=['hash_reg']
+            self.index_list=['track_hash_reg', 'beacon_hash_reg']
             logging.info("Gitworker: commit message and index initiated...")
         except Exception as e:
             logging.warning("Gitworker: unable to initiate commit message and index")
@@ -115,7 +115,7 @@ class Gitworker:
     def add_to_index(self):
         try:
             self.repo.index.add(self.index_list)
-            logging.info(f"Update git index with the list of tracked objects: {index_list}")
+            logging.info(f"Update git index with the list of tracked objects: {self.index_list}")
         except Exception as e:
             logging.warning(f"Unable to update the git index.")
             raise Exception(f"{e}")
@@ -147,9 +147,15 @@ class Gitworker:
             raise Exception(f"{e}")
 
     # Stored object section
-    def compare_object_hash(self, uuid:str="00000000-0000-0000-0000-000000000000", content:str="{}")->bool:
+    def compare_object_hash(self, uuid:str="00000000-0000-0000-0000-000000000000", content:str="{}", reg_type:str='track')->bool:
         try:
-            with open(f'{REPO_PATH}/{self.remote_repo_name}/hash_reg', mode='r') as _hash_reg:
+            match reg_type:
+                case 'track' | 'beacon':
+                    hash_reg_filepath=f'{REPO_PATH}/{self.remote_repo_name}/{reg_type}_hash_reg'
+                case _:
+                    raise Exception(f"Invalid registry type.")
+
+            with open(hash_reg_filepath, mode='r') as _hash_reg:
                 hash_reg=json.load(_hash_reg)
             stored_hash=hash_reg.get(uuid)
             _, current_hash=self.get_uuid_objhash(uuid, content)
@@ -160,7 +166,7 @@ class Gitworker:
             else:
                 result=False
 
-            logging.info(f"Comparing hash for uuid {uuid}. Stored: {stored_hash}, current: {current_hash} with result: {result}")
+            logging.info(f"Comparing {reg_type} hash for uuid {uuid}. Stored: {stored_hash}, current: {current_hash} with result: {result}")
             return result
         except Exception as e:
             logging.warning(f"Unable to compare hash values for uuid: {uuid}")
@@ -169,24 +175,31 @@ class Gitworker:
         try:
             with open(f'{REPO_PATH}/{self.remote_repo_name}/{uuid}', mode='w') as file:
                 new_content_str=json.dumps(new_content, indent=2)
-                 
+                
                 file.write(new_content_str)
             logging.info(f"Object with uuid: {uuid} updated in the local repository.")
         except Exception as e:
             logging.warning(f"Unable to update local repo for uuid: {uuid}")
             raise Exception(f"{e}") 
-    def update_hash_reg(self, uuid:str="00000000-0000-0000-0000-000000000000", new_content:str="{}"):
+    def update_hash_reg(self, uuid:str="00000000-0000-0000-0000-000000000000", new_content:str="{}", reg_type:str='track'):
         try:
             _, object_hash=self.get_uuid_objhash(uuid, new_content)
-            with open(f'{REPO_PATH}/{self.remote_repo_name}/hash_reg', mode='r') as _hash_reg:
+            match reg_type:
+                case 'track' | 'beacon':
+                    hash_reg_filepath=f'{REPO_PATH}/{self.remote_repo_name}/{reg_type}_hash_reg'
+                case _:
+                    raise Exception(f"Invalid registry type.")
+
+            with open(, mode='r') as _hash_reg:
                 hash_reg=json.load(_hash_reg)
 
-            with open(f'{REPO_PATH}/{self.remote_repo_name}/hash_reg', mode='w') as _hash_reg:
+            with open(f'{REPO_PATH}/{self.remote_repo_name}/{reg_type}_hash_reg', mode='w') as _hash_reg:
                 hash_reg[uuid]=object_hash
                 json.dump(hash_reg, _hash_reg)
-            logging.info(f"Hash registry updated for {uuid}: {object_hash}.")
+
+            logging.info(f"{capitalize(reg_type)} hash registry updated for {uuid}: {object_hash}.")
         except Exception as e:
-            logging.warning(f"Unable to modify hash registry.")
+            logging.warning(f"Unable to modify {reg_type} hash registry.")
             raise Exception(f"{e}")
     def push_to_remote_repository(self):
         try:
@@ -341,14 +354,15 @@ class TrackWorld:
             uuid=self.world_uuid
             beacon=self.client.get_world(uuid, self.beacon_gran['world'])
             logging.info(f">>> Resolving World Object Tracking <<<")
-            if not gitworker.compare_object_hash(uuid, beacon):
+            if not gitworker.compare_object_hash(uuid, beacon, reg_type='beacon'):
                 logging.info(f">> Beacon hash condition satisfied <<")
+                gitworker.update_hash_reg(uuid, beacon, reg_type='beacon')
                 content=self.client.get_world(uuid, self.track_gran['world'])
-                if not gitworker.compare_object_hash(uuid, content):
+                if not gitworker.compare_object_hash(uuid, content, reg_type='track'):
                     logging.info(f"> Content hash condition satisfied <")
 
                     gitworker.update_repo_object(uuid, content)
-                    gitworker.update_hash_reg(uuid, content)
+                    gitworker.update_hash_reg(uuid, content, reg_type='track')
                     gitworker.update_index_list(uuid)
                     gitworker.add_to_index()
                     gitworker.update_commit_message(f"{uuid}: {content['url']}, beacon gran: {self.beacon_gran['world']}, track_gran: {self.track_gran['world']}")
