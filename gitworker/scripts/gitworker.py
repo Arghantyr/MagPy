@@ -190,14 +190,14 @@ class Gitworker:
                 case _:
                     raise Exception(f"Invalid registry type.")
 
-            with open(, mode='r') as _hash_reg:
+            with open(hash_reg_filepath, mode='r') as _hash_reg:
                 hash_reg=json.load(_hash_reg)
 
-            with open(f'{REPO_PATH}/{self.remote_repo_name}/{reg_type}_hash_reg', mode='w') as _hash_reg:
+            with open(hash_reg_filepath, mode='w') as _hash_reg:
                 hash_reg[uuid]=object_hash
                 json.dump(hash_reg, _hash_reg)
 
-            logging.info(f"{capitalize(reg_type)} hash registry updated for {uuid}: {object_hash}.")
+            logging.info(f"{reg_type.capitalize()} hash registry updated for {uuid}: {object_hash}.")
         except Exception as e:
             logging.warning(f"Unable to modify {reg_type} hash registry.")
             raise Exception(f"{e}")
