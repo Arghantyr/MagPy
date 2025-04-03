@@ -14,4 +14,4 @@ test*
 Dockerfile-ubuntu
 
 # Repository entries
-repo/*
+gitworker/repo/*
