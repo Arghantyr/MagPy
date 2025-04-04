@@ -387,22 +387,21 @@ class TrackWorld:
                 world_uuid=self.world_uuid
                 category_uuids=self.category_mapping[self.world_uuid]
 
-                for uuid in category_uuids:
-    
-                beacon=self.client.get_category(uuid, self.beacon_gran['category'])
-                logging.info(f">>> Resolving Category Object Tracking <<<")
-                if not gitworker.compare_object_hash(uuid, beacon, reg_type='beacon'):
-                    logging.info(f">> Beacon hash condition satisfied <<")
-                    gitworker.update_hash_reg(uuid, beacon, reg_type='beacon')
-                    content=self.client.get_category(uuid, self.track_gran['category'])
-                    if not gitworker.compare_object_hash(uuid, content, reg_type='track'):
-                        logging.info(f"> Content hash condition satisfied <")
+                for uuid in category_uuids:    
+                    beacon=self.client.get_category(uuid, self.beacon_gran['category'])
+                    logging.info(f">>> Resolving Category Object Tracking <<<")
+                    if not gitworker.compare_object_hash(uuid, beacon, reg_type='beacon'):
+                        logging.info(f">> Beacon hash condition satisfied <<")
+                        gitworker.update_hash_reg(uuid, beacon, reg_type='beacon')
+                        content=self.client.get_category(uuid, self.track_gran['category'])
+                        if not gitworker.compare_object_hash(uuid, content, reg_type='track'):
+                            logging.info(f"> Content hash condition satisfied <")
 
-                        gitworker.update_repo_object(uuid, content)
-                        gitworker.update_hash_reg(uuid, content, reg_type='track')
-                        gitworker.update_index_list(uuid)
-                        gitworker.add_to_index()
-                        gitworker.update_commit_message(f"{uuid}: {content['url']}, beacon gran: {self.beacon_gran['category']}, track_gran: {self.track_gran['category']}")
+                            gitworker.update_repo_object(uuid, content)
+                            gitworker.update_hash_reg(uuid, content, reg_type='track')
+                            gitworker.update_index_list(uuid)
+                            gitworker.add_to_index()
+                            gitworker.update_commit_message(f"{uuid}: {content['url']}, beacon gran: {self.beacon_gran['category']}, track_gran: {self.track_gran['category']}")
 
                 gitworker.post_commit(short_commit_message='Categories update')
                 gitworker.push_to_remote_repository()
