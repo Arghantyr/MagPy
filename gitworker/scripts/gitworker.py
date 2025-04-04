@@ -245,6 +245,13 @@ class WAClient:
         except Exception as e:
             logging.warning(f"Could not fetch world object. UUID: {world_uuid}, GRANULARITY: {granularity}")
             raise Exception(f"{e}")
+    def get_category(self, category_uuid:str='', granularity:int=-1):
+        try:
+            logging.info(f"Category object fetched. UUID: {category_uuid}, GRANULARITY: {granularity}")
+            return self.client.category.get(category_uuid, granularity)
+        except Exception as e:
+            logging.warning(f"Could not fetch category object. UUID: {category_uuid}, GRANULARITY: {granularity}")
+            raise Exception(f"{e}")
     def get_world_categories_mapping(self, world_uuid:str=''):
         try:
             categories = [category['id'] for category in self.client.world.categories(world_uuid)]
@@ -376,8 +383,34 @@ class TrackWorld:
             raise Exception(f"{e}")
     def resolve_categories(self, gitworker:Gitworker=None):
         try:
-            pass
+            if self.track_changes['categories']:
+                world_uuid=self.world_uuid
+                category_uuids=self.category_mapping[self.world_uuid]
+
+                for uuid in category_uuids:
+    
+                beacon=self.client.get_category(uuid, self.beacon_gran['category'])
+                logging.info(f">>> Resolving Category Object Tracking <<<")
+                if not gitworker.compare_object_hash(uuid, beacon, reg_type='beacon'):
+                    logging.info(f">> Beacon hash condition satisfied <<")
+                    gitworker.update_hash_reg(uuid, beacon, reg_type='beacon')
+                    content=self.client.get_category(uuid, self.track_gran['category'])
+                    if not gitworker.compare_object_hash(uuid, content, reg_type='track'):
+                        logging.info(f"> Content hash condition satisfied <")
+
+                        gitworker.update_repo_object(uuid, content)
+                        gitworker.update_hash_reg(uuid, content, reg_type='track')
+                        gitworker.update_index_list(uuid)
+                        gitworker.add_to_index()
+                        gitworker.update_commit_message(f"{uuid}: {content['url']}, beacon gran: {self.beacon_gran['category']}, track_gran: {self.track_gran['category']}")
+
+                gitworker.post_commit(short_commit_message='Categories update')
+                gitworker.push_to_remote_repository()
+            else:
+                logging.info(f"Categories tracking disabled in configuration file.")
+
         except Exception as e:
+            logging.warning(f"Could not resolve category objects tracking: {e}")
             raise Exception(f"{e}")
 
 
@@ -394,6 +427,7 @@ def main():
                             _world['track_changes'],
                             wacli)
             tr.resolve_world(gitw)
+            tr.resolve_categories(gitw)
         time.sleep(PING_INTERVAL_S)
 
 
