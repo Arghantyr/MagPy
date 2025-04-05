@@ -333,9 +333,7 @@ class TrackWorld:
                 logging.info(f"Articles tracking: ON. Fetching article mapping...")
                 
                 category_uuids=self.category_mapping[self.world_uuid].copy()
-                logging.warning(f"Categories right after loading in 'load_article_dict': {category_uuids}")
                 self.articles_mapping=self.client.get_category_articles_mapping(self.world_uuid, category_uuids)
-                logging.warning(f"Categories after article loading: {category_uuids}")
             else:
                 logging.info(f"Articles tracking: OFF.")
                 pass
