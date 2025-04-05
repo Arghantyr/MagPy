@@ -252,6 +252,13 @@ class WAClient:
         except Exception as e:
             logging.warning(f"Could not fetch category object. UUID: {category_uuid}, GRANULARITY: {granularity}")
             raise Exception(f"{e}")
+    def get_article(self, article_uuid:str='', granularity:int=-1):
+        try:
+            logging.info(f"Article object fetched. UUID: {article_uuid}, GRANULARITY: {granularity}")
+            return self.client.article.get(article_uuid, granularity)
+        except Exception as e:
+            logging.warning(f"Could not fetch article object. UUID: {article_uuid}, GRANULARITY: {granularity}")
+            raise Exception(f"{e}")
     def get_world_categories_mapping(self, world_uuid:str=''):
         try:
             categories = [category['id'] for category in self.client.world.categories(world_uuid)]
@@ -262,8 +269,8 @@ class WAClient:
             raise Exception(f"{e}")
     def get_category_articles_mapping(self, world_uuid:str='', category_uuids:list=[]):
         try:
-            category_uuids.extend('-1') #Account for uncategorized articles
-            articles_mapping={cat_uuid: [art for art in self.client.category.articles(world_uuid, category_uuid)
+            category_uuids.append('-1') #Account for uncategorized articles
+            articles_mapping={cat_uuid: [art['id'] for art in self.client.world.articles(world_uuid, cat_uuid)
                                          ] for cat_uuid in category_uuids}
             logging.info(f"Fetched category-article mapping for world {world_uuid}:\n{json.dumps(articles_mapping, indent=2)}")
             return articles_mapping
@@ -324,8 +331,11 @@ class TrackWorld:
         try:
             if track:
                 logging.info(f"Articles tracking: ON. Fetching article mapping...")
-                category_uuids=self.category_mapping(self.world_uuid)
-                self.articles_mapping=self.client.get_category_artcles_mapping(self.world_uuid, category_uuids)
+                
+                category_uuids=self.category_mapping[self.world_uuid].copy()
+                logging.warning(f"Categories right after loading in 'load_article_dict': {category_uuids}")
+                self.articles_mapping=self.client.get_category_articles_mapping(self.world_uuid, category_uuids)
+                logging.warning(f"Categories after article loading: {category_uuids}")
             else:
                 logging.info(f"Articles tracking: OFF.")
                 pass
@@ -415,6 +425,40 @@ class TrackWorld:
 
         except Exception as e:
             logging.warning(f"Could not resolve category objects tracking: {e}")
+            raise Exception(f"{e}") 
+    def resolve_articles(self, gitworker:Gitworker=None):
+        try:
+            if self.track_changes['articles']:
+                for cat_uuid in self.articles_mapping:
+                    logging.info(f">>>> Resolving Articles belonging to Category: {cat_uuid} <<<<")
+                    articles_changed=0
+                    for uuid in self.articles_mapping[cat_uuid]:
+                        beacon=self.client.get_article(uuid, self.beacon_gran['article'])
+                        logging.info(f">>> Resolving Article Object Tracking <<<")
+                        if not gitworker.compare_object_hash(uuid, beacon, reg_type='beacon'):
+                            logging.info(f">> Beacon hash condition satisfied <<")
+                            gitworker.update_hash_reg(uuid, beacon, reg_type='beacon')
+                            content=self.client.get_article(uuid, self.track_gran['article'])
+                            if not gitworker.compare_object_hash(uuid, content, reg_type='track'):
+                                logging.info(f"> Content hash condition satisfied <")
+
+                                articles_changed += 1
+
+                                gitworker.update_repo_object(uuid, content)
+                                gitworker.update_hash_reg(uuid, content, reg_type='track')
+                                gitworker.update_index_list(uuid)
+                                gitworker.add_to_index()
+                                gitworker.update_commit_message(f"{uuid}: {content['url']}, beacon gran: {self.beacon_gran['article']}, track_gran: {self.track_gran['article']}")
+
+                    if articles_changed > 0:
+                        gitworker.post_commit(short_commit_message=f'Articles update for Category {cat_uuid}')
+                        gitworker.push_to_remote_repository()
+                        articles_changed=0
+            else:
+                logging.info(f"Articles tracking disabled in configuration file.")
+
+        except Exception as e:
+            logging.warning(f"Could not resolve article objects tracking: {e}")
             raise Exception(f"{e}")
 
 
@@ -432,6 +476,7 @@ def main():
                             wacli)
             tr.resolve_world(gitw)
             tr.resolve_categories(gitw)
+            tr.resolve_articles(gitw)
         time.sleep(PING_INTERVAL_S)
 
 
