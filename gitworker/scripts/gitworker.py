@@ -4,6 +4,9 @@ import time
 import yaml
 from datetime import datetime
 from  pywaclient.api import BoromirApiClient
+from pywaclient.exceptions import ConnectionException, UnexpectedStatusException, InternalServerException,
+                                  UnauthorizedRequest, AccessForbidden, ResourceNotFound,
+                                  UnprocessableDataProvided, FailedRequest
 import git
 from hashlib import sha1
 import logging
@@ -19,7 +22,7 @@ logging.basicConfig(
 )
 
 
-
+NULL_UUID="00000000-0000-0000-0000-000000000000"
 SCRIPT_NAME='gitworker.py'
 MAGPY_REPO_URL='https://github.com/Arghantyr/MagPy'
 VERSION='0.1'
@@ -91,7 +94,7 @@ class Gitworker:
             raise Exception(f"{e}")
 
     # Metadata and supporting functions
-    def get_uuid_objhash(self, uuid:str="00000000-0000-0000-0000-000000000000", content:str="{}"):
+    def get_uuid_objhash(self, uuid:str=NULL_UUID, content:str="{}"):
         try:
             obj_hash=sha1(json.dumps(content, ensure_ascii=False).encode('utf-8')).hexdigest()
             logging.info(f"Calculated hash for object string. UUID: {uuid}, hash: {obj_hash}")
@@ -147,7 +150,7 @@ class Gitworker:
             raise Exception(f"{e}")
 
     # Stored object section
-    def compare_object_hash(self, uuid:str="00000000-0000-0000-0000-000000000000", content:str="{}", reg_type:str='track')->bool:
+    def compare_object_hash(self, uuid:str=NULL_UUID, content:str="{}", reg_type:str='track')->bool:
         try:
             match reg_type:
                 case 'track' | 'beacon':
@@ -171,7 +174,7 @@ class Gitworker:
         except Exception as e:
             logging.warning(f"Unable to compare hash values for uuid: {uuid}")
             raise Exception(f"{e}")
-    def update_repo_object(self, uuid:str="00000000-0000-0000-0000-000000000000", new_content:str="{}"):
+    def update_repo_object(self, uuid:str=NULL_UUID, new_content:str="{}"):
         try:
             with open(f'{REPO_PATH}/{self.remote_repo_name}/{uuid}', mode='w') as file:
                 new_content_str=json.dumps(new_content, indent=2)
@@ -181,7 +184,7 @@ class Gitworker:
         except Exception as e:
             logging.warning(f"Unable to update local repo for uuid: {uuid}")
             raise Exception(f"{e}") 
-    def update_hash_reg(self, uuid:str="00000000-0000-0000-0000-000000000000", new_content:str="{}", reg_type:str='track'):
+    def update_hash_reg(self, uuid:str=NULL_UUID, new_content:str="{}", reg_type:str='track'):
         try:
             _, object_hash=self.get_uuid_objhash(uuid, new_content)
             match reg_type:
@@ -228,6 +231,26 @@ class WAClient:
         try:
             logging.info(f"Fetching User identity...")
             return self.client.user.identity()
+        except ConnectionException as connection_exception:
+            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
+            raise Exception(f"{connection_exception}")
+        except InternalServerException as internal_server_exception:
+            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
+            raise Exception(f"{internal_server_exception}")
+        except UnauthorizedRequest as unauthorized_request:
+            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
+            raise Exception(f"{unauthorized_request}")
+        except AccessForbidden as access_forbidden:
+            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
+            raise Exception(f"{access_forbidden}")
+        except ResourceNotFound as resource_not_found:
+            logging.warning(f"Requested resource not found. {resource_not_found}")
+            raise Exception(f"{resource_not_found}")
+        except UnprocessableDataProvided as unprocessable_data_provided:
+            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
+            raise Exception(f"{unprocessable_data_provided}")
+        except FailedRequest as failed_request:
+            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
             logging.warning(f"Could not fetch user identity")
             raise Exception(f"{e}")
@@ -235,6 +258,26 @@ class WAClient:
         try:
             logging.info(f"Fetching worlds owned by user {user_id}")
             return self.client.user.worlds(user_id)
+        except ConnectionException as connection_exception:
+            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
+            raise Exception(f"{connection_exception}")
+        except InternalServerException as internal_server_exception:
+            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
+            raise Exception(f"{internal_server_exception}")
+        except UnauthorizedRequest as unauthorized_request:
+            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
+            raise Exception(f"{unauthorized_request}")
+        except AccessForbidden as access_forbidden:
+            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
+            raise Exception(f"{access_forbidden}")
+        except ResourceNotFound as resource_not_found:
+            logging.warning(f"Requested resource not found. {resource_not_found}")
+            raise Exception(f"{resource_not_found}")
+        except UnprocessableDataProvided as unprocessable_data_provided:
+            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
+            raise Exception(f"{unprocessable_data_provided}")
+        except FailedRequest as failed_request:
+            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
             logging.warning(f"Could not fetch worlds for user {user_id}")
             raise Exception(f"{e}")
@@ -242,20 +285,80 @@ class WAClient:
         try:
             logging.info(f"World object fetched. UUID: {world_uuid}, GRANULARITY: {granularity}")
             return self.client.world.get(world_uuid, granularity)
+        except ConnectionException as connection_exception:
+            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
+            raise Exception(f"{connection_exception}")
+        except InternalServerException as internal_server_exception:
+            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
+            raise Exception(f"{internal_server_exception}")
+        except UnauthorizedRequest as unauthorized_request:
+            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
+            raise Exception(f"{unauthorized_request}")
+        except AccessForbidden as access_forbidden:
+            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
+            raise Exception(f"{access_forbidden}")
+        except ResourceNotFound as resource_not_found:
+            logging.warning(f"Requested resource not found. {resource_not_found}")
+            raise Exception(f"{resource_not_found}")
+        except UnprocessableDataProvided as unprocessable_data_provided:
+            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
+            raise Exception(f"{unprocessable_data_provided}")
+        except FailedRequest as failed_request:
+            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
             logging.warning(f"Could not fetch world object. UUID: {world_uuid}, GRANULARITY: {granularity}")
             raise Exception(f"{e}")
     def get_category(self, category_uuid:str='', granularity:int=-1):
         try:
             logging.info(f"Category object fetched. UUID: {category_uuid}, GRANULARITY: {granularity}")
-            return self.client.category.get(category_uuid, granularity)
+            return self.client.category.get(category_uuid, granularity) 
+        except ConnectionException as connection_exception:
+            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
+            raise Exception(f"{connection_exception}")
+        except InternalServerException as internal_server_exception:
+            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
+            raise Exception(f"{internal_server_exception}")
+        except UnauthorizedRequest as unauthorized_request:
+            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
+            raise Exception(f"{unauthorized_request}")
+        except AccessForbidden as access_forbidden:
+            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
+            raise Exception(f"{access_forbidden}")
+        except ResourceNotFound as resource_not_found:
+            logging.warning(f"Requested resource not found. {resource_not_found}")
+            raise Exception(f"{resource_not_found}")
+        except UnprocessableDataProvided as unprocessable_data_provided:
+            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
+            raise Exception(f"{unprocessable_data_provided}")
+        except FailedRequest as failed_request:
+            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
             logging.warning(f"Could not fetch category object. UUID: {category_uuid}, GRANULARITY: {granularity}")
             raise Exception(f"{e}")
     def get_article(self, article_uuid:str='', granularity:int=-1):
         try:
             logging.info(f"Article object fetched. UUID: {article_uuid}, GRANULARITY: {granularity}")
-            return self.client.article.get(article_uuid, granularity)
+            return self.client.article.get(article_uuid, granularity) 
+        except ConnectionException as connection_exception:
+            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
+            raise Exception(f"{connection_exception}")
+        except InternalServerException as internal_server_exception:
+            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
+            raise Exception(f"{internal_server_exception}")
+        except UnauthorizedRequest as unauthorized_request:
+            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
+            raise Exception(f"{unauthorized_request}")
+        except AccessForbidden as access_forbidden:
+            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
+            raise Exception(f"{access_forbidden}")
+        except ResourceNotFound as resource_not_found:
+            logging.warning(f"Requested resource not found. {resource_not_found}")
+            raise Exception(f"{resource_not_found}")
+        except UnprocessableDataProvided as unprocessable_data_provided:
+            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
+            raise Exception(f"{unprocessable_data_provided}")
+        except FailedRequest as failed_request:
+            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
             logging.warning(f"Could not fetch article object. UUID: {article_uuid}, GRANULARITY: {granularity}")
             raise Exception(f"{e}")
@@ -264,6 +367,26 @@ class WAClient:
             categories = [category['id'] for category in self.client.world.categories(world_uuid)]
             logging.info(f"Categories fetched for world {world_uuid}: {', '.join(categories)}")
             return {world_uuid: categories}
+        except ConnectionException as connection_exception:
+            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
+            raise Exception(f"{connection_exception}")
+        except InternalServerException as internal_server_exception:
+            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
+            raise Exception(f"{internal_server_exception}")
+        except UnauthorizedRequest as unauthorized_request:
+            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
+            raise Exception(f"{unauthorized_request}")
+        except AccessForbidden as access_forbidden:
+            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
+            raise Exception(f"{access_forbidden}")
+        except ResourceNotFound as resource_not_found:
+            logging.warning(f"Requested resource not found. {resource_not_found}")
+            raise Exception(f"{resource_not_found}")
+        except UnprocessableDataProvided as unprocessable_data_provided:
+            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
+            raise Exception(f"{unprocessable_data_provided}")
+        except FailedRequest as failed_request:
+            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
             logging.warning(f"Could not fetch categories for world {world_uuid}")
             raise Exception(f"{e}")
@@ -274,6 +397,26 @@ class WAClient:
                                          ] for cat_uuid in category_uuids}
             logging.info(f"Fetched category-article mapping for world {world_uuid}:\n{json.dumps(articles_mapping, indent=2)}")
             return articles_mapping
+        except ConnectionException as connection_exception:
+            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
+            raise Exception(f"{connection_exception}")
+        except InternalServerException as internal_server_exception:
+            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
+            raise Exception(f"{internal_server_exception}")
+        except UnauthorizedRequest as unauthorized_request:
+            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
+            raise Exception(f"{unauthorized_request}")
+        except AccessForbidden as access_forbidden:
+            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
+            raise Exception(f"{access_forbidden}")
+        except ResourceNotFound as resource_not_found:
+            logging.warning(f"Requested resource not found. {resource_not_found}")
+            raise Exception(f"{resource_not_found}")
+        except UnprocessableDataProvided as unprocessable_data_provided:
+            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
+            raise Exception(f"{unprocessable_data_provided}")
+        except FailedRequest as failed_request:
+            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
             logging.warning(f"Could not process category-article mapping for world {world_uuid} and categories: {', '.join(category_uuids)}")
             raise Exception(f"{e}")
@@ -304,6 +447,26 @@ class TrackWorld:
         try:
             self.auth_user_id=self.client.get_auth_user_id()['id']
             logging.info(f"ID fetched for the authenticated user.")
+        except ConnectionException as connection_exception:
+            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
+            raise Exception(f"{connection_exception}")
+        except InternalServerException as internal_server_exception:
+            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
+            raise Exception(f"{internal_server_exception}")
+        except UnauthorizedRequest as unauthorized_request:
+            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
+            raise Exception(f"{unauthorized_request}")
+        except AccessForbidden as access_forbidden:
+            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
+            raise Exception(f"{access_forbidden}")
+        except ResourceNotFound as resource_not_found:
+            logging.warning(f"Requested resource not found. {resource_not_found}")
+            raise Exception(f"{resource_not_found}")
+        except UnprocessableDataProvided as unprocessable_data_provided:
+            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
+            raise Exception(f"{unprocessable_data_provided}")
+        except FailedRequest as failed_request:
+            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
             logging.warning(f"Could not fetch ID for the authenticated user")
             raise Exception(f"{e}")
@@ -313,6 +476,26 @@ class TrackWorld:
              
             self.world_uuid=worlds[self.url]
             logging.info(f"ID loaded for the selected world: {self.world_uuid}")
+        except ConnectionException as connection_exception:
+            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
+            raise Exception(f"{connection_exception}")
+        except InternalServerException as internal_server_exception:
+            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
+            raise Exception(f"{internal_server_exception}")
+        except UnauthorizedRequest as unauthorized_request:
+            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
+            raise Exception(f"{unauthorized_request}")
+        except AccessForbidden as access_forbidden:
+            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
+            raise Exception(f"{access_forbidden}")
+        except ResourceNotFound as resource_not_found:
+            logging.warning(f"Requested resource not found. {resource_not_found}")
+            raise Exception(f"{resource_not_found}")
+        except UnprocessableDataProvided as unprocessable_data_provided:
+            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
+            raise Exception(f"{unprocessable_data_provided}")
+        except FailedRequest as failed_request:
+            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
             logging.warning(f"Could not load world id for the selected world")
             raise Exception(f"{e}")
@@ -324,6 +507,26 @@ class TrackWorld:
             else:
                 logging.info(f"Category tracking: OFF.")
                 pass
+        except ConnectionException as connection_exception:
+            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
+            raise Exception(f"{connection_exception}")
+        except InternalServerException as internal_server_exception:
+            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
+            raise Exception(f"{internal_server_exception}")
+        except UnauthorizedRequest as unauthorized_request:
+            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
+            raise Exception(f"{unauthorized_request}")
+        except AccessForbidden as access_forbidden:
+            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
+            raise Exception(f"{access_forbidden}")
+        except ResourceNotFound as resource_not_found:
+            logging.warning(f"Requested resource not found. {resource_not_found}")
+            raise Exception(f"{resource_not_found}")
+        except UnprocessableDataProvided as unprocessable_data_provided:
+            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
+            raise Exception(f"{unprocessable_data_provided}")
+        except FailedRequest as failed_request:
+            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
             logging.warning(f"Could not load category mapping: {e}")
             raise Exception(f"{e}")
@@ -337,9 +540,29 @@ class TrackWorld:
             else:
                 logging.info(f"Articles tracking: OFF.")
                 pass
+        except ConnectionException as connection_exception:
+            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
+            raise Exception(f"{connection_exception}")
+        except InternalServerException as internal_server_exception:
+            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
+            raise Exception(f"{internal_server_exception}")
+        except UnauthorizedRequest as unauthorized_request:
+            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
+            raise Exception(f"{unauthorized_request}")
+        except AccessForbidden as access_forbidden:
+            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
+            raise Exception(f"{access_forbidden}")
+        except ResourceNotFound as resource_not_found:
+            logging.warning(f"Requested resource not found. {resource_not_found}")
+            raise Exception(f"{resource_not_found}")
+        except UnprocessableDataProvided as unprocessable_data_provided:
+            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
+            raise Exception(f"{unprocessable_data_provided}")
+        except FailedRequest as failed_request:
+            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
             logging.warning(f"Could not load article mapping: {e}")
-            raise Exception(f"{e}") 
+            raise Exception(f"{e}")
     def set_track_granularities(self):
         try:
             self.track_gran={
@@ -386,6 +609,26 @@ class TrackWorld:
                     gitworker.push_to_remote_repository()
                 else:
                     pass
+        except ConnectionException as connection_exception:
+            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
+            raise Exception(f"{connection_exception}")
+        except InternalServerException as internal_server_exception:
+            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
+            raise Exception(f"{internal_server_exception}")
+        except UnauthorizedRequest as unauthorized_request:
+            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
+            raise Exception(f"{unauthorized_request}")
+        except AccessForbidden as access_forbidden:
+            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
+            raise Exception(f"{access_forbidden}")
+        except ResourceNotFound as resource_not_found:
+            logging.warning(f"Requested resource not found. {resource_not_found}")
+            raise Exception(f"{resource_not_found}")
+        except UnprocessableDataProvided as unprocessable_data_provided:
+            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
+            raise Exception(f"{unprocessable_data_provided}")
+        except FailedRequest as failed_request:
+            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
             logging.warning(f"Could not resolve world object tracking: {e}")
             raise Exception(f"{e}")
@@ -420,7 +663,26 @@ class TrackWorld:
                     categories_changed=0
             else:
                 logging.info(f"Categories tracking disabled in configuration file.")
-
+        except ConnectionException as connection_exception:
+            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
+            raise Exception(f"{connection_exception}")
+        except InternalServerException as internal_server_exception:
+            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
+            raise Exception(f"{internal_server_exception}")
+        except UnauthorizedRequest as unauthorized_request:
+            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
+            raise Exception(f"{unauthorized_request}")
+        except AccessForbidden as access_forbidden:
+            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
+            raise Exception(f"{access_forbidden}")
+        except ResourceNotFound as resource_not_found:
+            logging.warning(f"Requested resource not found. {resource_not_found}")
+            raise Exception(f"{resource_not_found}")
+        except UnprocessableDataProvided as unprocessable_data_provided:
+            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
+            raise Exception(f"{unprocessable_data_provided}")
+        except FailedRequest as failed_request:
+            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
             logging.warning(f"Could not resolve category objects tracking: {e}")
             raise Exception(f"{e}") 
@@ -454,7 +716,26 @@ class TrackWorld:
                         articles_changed=0
             else:
                 logging.info(f"Articles tracking disabled in configuration file.")
-
+        except ConnectionException as connection_exception:
+            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
+            raise Exception(f"{connection_exception}")
+        except InternalServerException as internal_server_exception:
+            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
+            raise Exception(f"{internal_server_exception}")
+        except UnauthorizedRequest as unauthorized_request:
+            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
+            raise Exception(f"{unauthorized_request}")
+        except AccessForbidden as access_forbidden:
+            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
+            raise Exception(f"{access_forbidden}")
+        except ResourceNotFound as resource_not_found:
+            logging.warning(f"Requested resource not found. {resource_not_found}")
+            raise Exception(f"{resource_not_found}")
+        except UnprocessableDataProvided as unprocessable_data_provided:
+            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
+            raise Exception(f"{unprocessable_data_provided}")
+        except FailedRequest as failed_request:
+            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
             logging.warning(f"Could not resolve article objects tracking: {e}")
             raise Exception(f"{e}")
