@@ -4,9 +4,16 @@ import time
 import yaml
 from datetime import datetime
 from  pywaclient.api import BoromirApiClient
-from pywaclient.exceptions import ConnectionException, UnexpectedStatusException, InternalServerException,
-                                  UnauthorizedRequest, AccessForbidden, ResourceNotFound,
-                                  UnprocessableDataProvided, FailedRequest
+from pywaclient.exceptions import (
+        ConnectionException,
+        UnexpectedStatusException,
+        InternalServerException,
+        UnauthorizedRequest,
+        AccessForbidden,
+        ResourceNotFound,
+        UnprocessableDataProvided,
+        FailedRequest
+        )
 import git
 from hashlib import sha1
 import logging
@@ -28,6 +35,7 @@ MAGPY_REPO_URL='https://github.com/Arghantyr/MagPy'
 VERSION='0.1'
 SSH_ID_FILE='/home/gitworker/.ssh/id_rsa'
 REPO_PATH='/home/gitworker/repo'
+FILE_INDEX_PATH='/home/gitworker/repo/file_index'
 QUIT_AT='2038-01-11 11:01'
 SECRET_PATH='/run/secrets/secret_config'
 PING_INTERVAL_S=60
@@ -87,7 +95,7 @@ class Gitworker:
     def initiate_commit_backend(self):
         try:
             self.commit_message=""
-            self.index_list=['track_hash_reg', 'beacon_hash_reg']
+            self.index_list=['track_hash_reg', 'beacon_hash_reg', 'file_index']
             logging.info("Gitworker: commit message and index initiated...")
         except Exception as e:
             logging.warning("Gitworker: unable to initiate commit message and index")
@@ -155,12 +163,19 @@ class Gitworker:
             match reg_type:
                 case 'track' | 'beacon':
                     hash_reg_filepath=f'{REPO_PATH}/{self.remote_repo_name}/{reg_type}_hash_reg'
+                    with open(hash_reg_filepath, mode='r') as _hash_reg:
+                        hash_reg=json.load(_hash_reg)
+                    stored_hash=hash_reg.get(uuid)
+                case 'file_index':
+                    file_index_filepath=f"{REPO_PATH}/{self.remote_repo_name}/file_index"
+                    with open(file_index_filepath, mode='r') as _file_index:
+                        file_index=json.load(_file_index)
+                        logging.info(f'Fetching file_index object: {file_index}')
+                    _, stored_hash=self.get_uuid_objhash(uuid, json.dumps(file_index))
+                    logging.info(f'Calculated hash ({stored_hash}) for stringified file index object: {json.dumps(file_index)}')
                 case _:
                     raise Exception(f"Invalid registry type.")
 
-            with open(hash_reg_filepath, mode='r') as _hash_reg:
-                hash_reg=json.load(_hash_reg)
-            stored_hash=hash_reg.get(uuid)
             _, current_hash=self.get_uuid_objhash(uuid, content)
 
             result=None
@@ -203,6 +218,23 @@ class Gitworker:
             logging.info(f"{reg_type.capitalize()} hash registry updated for {uuid}: {object_hash}.")
         except Exception as e:
             logging.warning(f"Unable to modify {reg_type} hash registry.")
+            raise Exception(f"{e}") 
+    def get_file_index(self):
+        try: 
+            with open(f"{REPO_PATH}/{self.remote_repo_name}/file_index", mode='r') as file_index:
+                stored_file_index=json.load(file_index)
+            return stored_file_index
+
+        except Exception as e:
+            raise Exception(f"{e}")
+    def update_file_index(self, uuid_type_map:dict[str, str]):
+        try:
+            stored_file_index=self.get_file_index()
+            stored_file_index.update(uuid_type_map)
+            with open(f"{REPO_PATH}/{self.remote_repo_name}/file_index", mode='w') as file_index:
+                json.dump(stored_file_index, file_index)
+            logging.info(f'File index updated and saved to file.')
+        except Exception as e:
             raise Exception(f"{e}")
     def push_to_remote_repository(self):
         try:
@@ -563,6 +595,23 @@ class TrackWorld:
         except Exception as e:
             logging.warning(f"Could not load article mapping: {e}")
             raise Exception(f"{e}")
+    def get_file_index_per_type(self, _type:str='world'):
+        try:
+            _file_index={}
+            match _type:
+                case 'world':
+                    _file_index={self.world_uuid: 'world'}
+                case 'categories':
+                    _file_index={category_uuid: 'category' for category_uuid in self.category_mapping[self.world_uuid]}
+                case 'articles':
+                    for cat in self.articles_mapping.keys():
+                        _file_index.update({article_uuid: 'article' for article_uuid in self.articles_mapping[cat]})
+                case _:
+                    logging.warning(f"Invalid file index type: {_type}")
+                    raise Exception(f"Invalid file index type: {_type}")
+            return _file_index
+        except Exception as e:
+            raise Exception(f"{e}")
     def set_track_granularities(self):
         try:
             self.track_gran={
@@ -585,6 +634,46 @@ class TrackWorld:
             assert all([self.beacon_gran[prop] <= self.track_gran[prop] for prop in self.track_gran.keys()]) == True
         except AssertionError:
             raise Exception("Invalid granularity settings. Beacon must be <= than Track.")
+        except Exception as e:
+            raise Exception(f"{e}")
+    def update_file_index(self, gitworker:Gitworker=None):
+        try:
+            temp_file_index=gitworker.get_file_index()
+            world_file_index=self.get_file_index_per_type(_type='world')
+            temp_file_index.update(world_file_index)
+
+            for _type in ['categories', 'articles']:
+                if self.track_changes[_type]:
+                    resolved_file_index=self.get_file_index_per_type(_type=_type)
+                    temp_file_index.update(resolved_file_index)
+
+            if not gitworker.compare_object_hash(content=json.dumps(temp_file_index), reg_type='file_index'):
+                gitworker.update_file_index(temp_file_index)
+                gitworker.add_to_index()
+                gitworker.post_commit(short_commit_message='File index updated')
+                gitworker.push_to_remote_repository()
+            logging.info(f">>>> File index updated <<<<")
+        except ConnectionException as connection_exception:
+            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
+            raise Exception(f"{connection_exception}")
+        except InternalServerException as internal_server_exception:
+            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
+            raise Exception(f"{internal_server_exception}")
+        except UnauthorizedRequest as unauthorized_request:
+            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
+            raise Exception(f"{unauthorized_request}")
+        except AccessForbidden as access_forbidden:
+            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
+            raise Exception(f"{access_forbidden}")
+        except ResourceNotFound as resource_not_found:
+            logging.warning(f"Requested resource not found. {resource_not_found}")
+            raise Exception(f"{resource_not_found}")
+        except UnprocessableDataProvided as unprocessable_data_provided:
+            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
+            raise Exception(f"{unprocessable_data_provided}")
+        except FailedRequest as failed_request:
+            logging.error(f"Request failed. {failed_request}")
+
         except Exception as e:
             raise Exception(f"{e}")
     def resolve_world(self, gitworker:Gitworker=None):
@@ -752,7 +841,8 @@ def main():
         for _world in secrets.worlds_list:
             tr = TrackWorld(_world['url'],
                             _world['track_changes'],
-                            wacli)
+                            wacli) 
+            tr.update_file_index(gitw)
             tr.resolve_world(gitw)
             tr.resolve_categories(gitw)
             tr.resolve_articles(gitw)

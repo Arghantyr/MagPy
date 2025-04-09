@@ -15,6 +15,9 @@ if [ ! -f ./beacon_hash_reg ]; then
 	cp ../hash_reg ./beacon_hash_reg
 fi
 
+if [ ! -f ./file_index ]; then
+	cp ../file_index ./file_index
+fi
 
 
 

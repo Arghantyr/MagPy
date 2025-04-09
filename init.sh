@@ -21,4 +21,7 @@ chmod u=rwx,go=rx ./gitworker/repo
 cp ./gitworker/hash_reg ./gitworker/repo/hash_reg
 chmod u=rw,go=r ./gitworker/repo/hash_reg
 
+cp ./gitworker/file_index ./gitworker/repo/file_index
+chmod u=rw,go=r ./gitworker/repo/file_index
+
 docker-compose up -d
