@@ -9,6 +9,9 @@ secret*
 gitworker/.ssh/agent*
 gitworker/.ssh/id*
 
+# Gitworker special files and directories
+gitworker/scripts/__pycache__
+
 # Test files and directories
 test*
 Dockerfile-ubuntu
