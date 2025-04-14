@@ -1,3 +1,5 @@
+import Utils
+
 import os
 import json
 import time
@@ -15,9 +17,9 @@ from pywaclient.exceptions import (
         FailedRequest
         )
 import git
-from hashlib import sha1
 import logging
 import sys
+
 
 
 logging.basicConfig(
@@ -104,7 +106,7 @@ class Gitworker:
     # Metadata and supporting functions
     def get_uuid_objhash(self, uuid:str=NULL_UUID, content:str="{}"):
         try:
-            obj_hash=sha1(json.dumps(content, ensure_ascii=False).encode('utf-8')).hexdigest()
+            obj_hash=Utils.get_hash(json.dumps(content, ensure_ascii=False))
             logging.info(f"Calculated hash for object string. UUID: {uuid}, hash: {obj_hash}")
             return uuid, obj_hash
         except Exception as e:
@@ -158,7 +160,7 @@ class Gitworker:
             raise Exception(f"{e}")
 
     # Stored object section
-    def compare_object_hash(self, uuid:str=NULL_UUID, content:str="{}", reg_type:str='track')->bool:
+    def compare_object_hash(self, uuid:str=NULL_UUID, content:dict|list={}, reg_type:str='track')->bool:
         try:
             match reg_type:
                 case 'track' | 'beacon':
@@ -171,12 +173,12 @@ class Gitworker:
                     with open(file_index_filepath, mode='r') as _file_index:
                         file_index=json.load(_file_index)
                         logging.info(f'Fetching file_index object: {file_index}')
-                    _, stored_hash=self.get_uuid_objhash(uuid, json.dumps(file_index))
+                    stored_hash=Utils.get_hash(json.dumps(file_index, ensure_ascii=False))
                     logging.info(f'Calculated hash ({stored_hash}) for stringified file index object: {json.dumps(file_index)}')
                 case _:
                     raise Exception(f"Invalid registry type.")
 
-            _, current_hash=self.get_uuid_objhash(uuid, content)
+            current_hash=Utils.get_hash(json.dumps(content, ensure_ascii=False))
 
             result=None
             if stored_hash==current_hash:
@@ -189,7 +191,7 @@ class Gitworker:
         except Exception as e:
             logging.warning(f"Unable to compare hash values for uuid: {uuid}")
             raise Exception(f"{e}")
-    def update_repo_object(self, uuid:str=NULL_UUID, new_content:str="{}"):
+    def update_repo_object(self, uuid:str=NULL_UUID, new_content:dict|list={}):
         try:
             with open(f'{REPO_PATH}/{self.remote_repo_name}/{uuid}', mode='w') as file:
                 new_content_str=json.dumps(new_content, indent=2)
@@ -199,9 +201,9 @@ class Gitworker:
         except Exception as e:
             logging.warning(f"Unable to update local repo for uuid: {uuid}")
             raise Exception(f"{e}") 
-    def update_hash_reg(self, uuid:str=NULL_UUID, new_content:str="{}", reg_type:str='track'):
+    def update_hash_reg(self, uuid:str=NULL_UUID, new_content:dict|list={}, reg_type:str='track'):
         try:
-            _, object_hash=self.get_uuid_objhash(uuid, new_content)
+            object_hash=Utils.get_hash(json.dumps(new_content, ensure_ascii=False))
             match reg_type:
                 case 'track' | 'beacon':
                     hash_reg_filepath=f'{REPO_PATH}/{self.remote_repo_name}/{reg_type}_hash_reg'
@@ -647,7 +649,7 @@ class TrackWorld:
                     resolved_file_index=self.get_file_index_per_type(_type=_type)
                     temp_file_index.update(resolved_file_index)
 
-            if not gitworker.compare_object_hash(content=json.dumps(temp_file_index), reg_type='file_index'):
+            if not gitworker.compare_object_hash(content=temp_file_index, reg_type='file_index'):
                 gitworker.update_file_index(temp_file_index)
                 gitworker.add_to_index()
                 gitworker.post_commit(short_commit_message='File index updated')
@@ -837,6 +839,7 @@ def main():
     gitw=Gitworker(secrets)
     wacli=WAClient(secrets.api_key, secrets.api_token)
 
+
     while datetime.now() < datetime.strptime(QUIT_AT, '%Y-%m-%d %H:%M' ):
         for _world in secrets.worlds_list:
             tr = TrackWorld(_world['url'],
@@ -846,6 +849,7 @@ def main():
             tr.resolve_world(gitw)
             tr.resolve_categories(gitw)
             tr.resolve_articles(gitw)
+
         time.sleep(PING_INTERVAL_S)
 
 

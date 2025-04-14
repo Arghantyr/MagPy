@@ -30,6 +30,7 @@ RUN source ./gitworker-venv/bin/activate && \
     ./gitworker-venv/bin/pip3 install -r ./gitworker-venv/requirements.txt
 
 COPY --chown=gitworker ./scripts/sys_setup.sh /opt/gitworker/scripts/sys_setup.sh
+COPY --chown=gitworker ./scripts/Utils.py /opt/gitworker/scripts/Utils.py
 COPY --chown=gitworker ./scripts/gitworker.py /opt/gitworker/scripts/gitworker.py
 COPY --chown=gitworker ./scripts/initiate_gitworker.sh /opt/gitworker/scripts/initiate_gitworker.sh
 COPY --chown=gitworker ./scripts/entrypoint.sh /opt/gitworker/scripts/entrypoint.sh
