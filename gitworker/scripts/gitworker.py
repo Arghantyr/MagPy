@@ -103,16 +103,6 @@ class Gitworker:
             logging.warning("Gitworker: unable to initiate commit message and index")
             raise Exception(f"{e}")
 
-    # Metadata and supporting functions
-    def get_uuid_objhash(self, uuid:str=NULL_UUID, content:str="{}"):
-        try:
-            obj_hash=Utils.get_hash(json.dumps(content, ensure_ascii=False))
-            logging.info(f"Calculated hash for object string. UUID: {uuid}, hash: {obj_hash}")
-            return uuid, obj_hash
-        except Exception as e:
-            logging.warning(f"Unable to calculate hash. UUID: {uuid}.")
-            raise Exception(f"{e}")
-
     # Index list section
     def update_index_list(self, element:str=''):
         try:
