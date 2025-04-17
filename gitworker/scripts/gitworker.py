@@ -1,4 +1,5 @@
 import Utils
+import BackendUtils
 
 import os
 import json
@@ -65,6 +66,7 @@ class Gitworker:
     def __init__(self, secret_obj:Secrets=None):
         self.load_secret(secret_obj)
         self.load_repo()
+        self.load_registries()
         self.validate_repo_settings()
         self.initiate_commit_backend()
 
@@ -79,10 +81,20 @@ class Gitworker:
     def load_repo(self):
         try:
             self.remote_repo_name=self.repo_ssh_url.rstrip('.git').split('/')[-1]
-            self.repo=git.Repo(f"{REPO_PATH}/{self.remote_repo_name}")
+            self.repo_path=f"{REPO_PATH}/{self.remote_repo_name}"
+            self.repo=git.Repo(self.repo_path)
             logging.info("Gitworker: repository object set...")
         except Exception as e:
             logging.warning("Gitworker: unable to load repository")
+            raise Exception(f"{e}") 
+    def load_registries(self):
+        try:
+            self.registries={
+                'beacon_hash_reg': BackendUtils.Registry(reg_dir_filepath=self.repo_path, reg_name='beacon_hash_reg'),
+                'track_hash_reg': BackendUtils.Registry(reg_dir_filepath=self.repo_path, reg_name='track_hash_reg'),
+                'file_index': BackendUtils.Registry(reg_dir_filepath=self.repo_path, reg_name='file_index')
+            }
+        except Exception as e:
             raise Exception(f"{e}")
     def validate_repo_settings(self):
         try:
@@ -97,7 +109,7 @@ class Gitworker:
     def initiate_commit_backend(self):
         try:
             self.commit_message=""
-            self.index_list=['track_hash_reg', 'beacon_hash_reg', 'file_index']
+            self.index_list=[reg_name for reg_name in self.registries.keys()]
             logging.info("Gitworker: commit message and index initiated...")
         except Exception as e:
             logging.warning("Gitworker: unable to initiate commit message and index")
@@ -149,38 +161,6 @@ class Gitworker:
             logging.warning(f"Unable to post commit")
             raise Exception(f"{e}")
 
-    # Stored object section
-    def compare_object_hash(self, uuid:str=NULL_UUID, content:dict|list={}, reg_type:str='track')->bool:
-        try:
-            match reg_type:
-                case 'track' | 'beacon':
-                    hash_reg_filepath=f'{REPO_PATH}/{self.remote_repo_name}/{reg_type}_hash_reg'
-                    with open(hash_reg_filepath, mode='r') as _hash_reg:
-                        hash_reg=json.load(_hash_reg)
-                    stored_hash=hash_reg.get(uuid)
-                case 'file_index':
-                    file_index_filepath=f"{REPO_PATH}/{self.remote_repo_name}/file_index"
-                    with open(file_index_filepath, mode='r') as _file_index:
-                        file_index=json.load(_file_index)
-                        logging.info(f'Fetching file_index object: {file_index}')
-                    stored_hash=Utils.get_hash(json.dumps(file_index, ensure_ascii=False))
-                    logging.info(f'Calculated hash ({stored_hash}) for stringified file index object: {json.dumps(file_index)}')
-                case _:
-                    raise Exception(f"Invalid registry type.")
-
-            current_hash=Utils.get_hash(json.dumps(content, ensure_ascii=False))
-
-            result=None
-            if stored_hash==current_hash:
-                result=True
-            else:
-                result=False
-
-            logging.info(f"Comparing {reg_type} hash for uuid {uuid}. Stored: {stored_hash}, current: {current_hash} with result: {result}")
-            return result
-        except Exception as e:
-            logging.warning(f"Unable to compare hash values for uuid: {uuid}")
-            raise Exception(f"{e}")
     def update_repo_object(self, uuid:str=NULL_UUID, new_content:dict|list={}):
         try:
             with open(f'{REPO_PATH}/{self.remote_repo_name}/{uuid}', mode='w') as file:
@@ -190,44 +170,8 @@ class Gitworker:
             logging.info(f"Object with uuid: {uuid} updated in the local repository.")
         except Exception as e:
             logging.warning(f"Unable to update local repo for uuid: {uuid}")
-            raise Exception(f"{e}") 
-    def update_hash_reg(self, uuid:str=NULL_UUID, new_content:dict|list={}, reg_type:str='track'):
-        try:
-            object_hash=Utils.get_hash(json.dumps(new_content, ensure_ascii=False))
-            match reg_type:
-                case 'track' | 'beacon':
-                    hash_reg_filepath=f'{REPO_PATH}/{self.remote_repo_name}/{reg_type}_hash_reg'
-                case _:
-                    raise Exception(f"Invalid registry type.")
-
-            with open(hash_reg_filepath, mode='r') as _hash_reg:
-                hash_reg=json.load(_hash_reg)
-
-            with open(hash_reg_filepath, mode='w') as _hash_reg:
-                hash_reg[uuid]=object_hash
-                json.dump(hash_reg, _hash_reg)
-
-            logging.info(f"{reg_type.capitalize()} hash registry updated for {uuid}: {object_hash}.")
-        except Exception as e:
-            logging.warning(f"Unable to modify {reg_type} hash registry.")
-            raise Exception(f"{e}") 
-    def get_file_index(self):
-        try: 
-            with open(f"{REPO_PATH}/{self.remote_repo_name}/file_index", mode='r') as file_index:
-                stored_file_index=json.load(file_index)
-            return stored_file_index
-
-        except Exception as e:
             raise Exception(f"{e}")
-    def update_file_index(self, uuid_type_map:dict[str, str]):
-        try:
-            stored_file_index=self.get_file_index()
-            stored_file_index.update(uuid_type_map)
-            with open(f"{REPO_PATH}/{self.remote_repo_name}/file_index", mode='w') as file_index:
-                json.dump(stored_file_index, file_index)
-            logging.info(f'File index updated and saved to file.')
-        except Exception as e:
-            raise Exception(f"{e}")
+
     def push_to_remote_repository(self):
         try:
             with self.repo.git.custom_environment(GIT_SSH_COMMAND=f'ssh -i {SSH_ID_FILE}'):
@@ -630,7 +574,7 @@ class TrackWorld:
             raise Exception(f"{e}")
     def update_file_index(self, gitworker:Gitworker=None):
         try:
-            temp_file_index=gitworker.get_file_index()
+            temp_file_index=gitworker.registries['file_index'].get_registry()
             world_file_index=self.get_file_index_per_type(_type='world')
             temp_file_index.update(world_file_index)
 
@@ -639,8 +583,8 @@ class TrackWorld:
                     resolved_file_index=self.get_file_index_per_type(_type=_type)
                     temp_file_index.update(resolved_file_index)
 
-            if not gitworker.compare_object_hash(content=temp_file_index, reg_type='file_index'):
-                gitworker.update_file_index(temp_file_index)
+            if not gitworker.registries['file_index'].compare_against_registry(value=temp_file_index):
+                gitworker.registries['file_index'].update_registry(value=temp_file_index)
                 gitworker.add_to_index()
                 gitworker.post_commit(short_commit_message='File index updated')
                 gitworker.push_to_remote_repository()
@@ -673,15 +617,15 @@ class TrackWorld:
             uuid=self.world_uuid
             beacon=self.client.get_world(uuid, self.beacon_gran['world'])
             logging.info(f">>> Resolving World Object Tracking <<<")
-            if not gitworker.compare_object_hash(uuid, beacon, reg_type='beacon'):
+            if not gitworker.registries['beacon_hash_reg'].compare_against_entry(identifier=uuid, value=beacon):
                 logging.info(f">> Beacon hash condition satisfied <<")
-                gitworker.update_hash_reg(uuid, beacon, reg_type='beacon')
+                gitworker.registries['beacon_hash_reg'].update_entry(identifier=uuid, value=beacon)
                 content=self.client.get_world(uuid, self.track_gran['world'])
-                if not gitworker.compare_object_hash(uuid, content, reg_type='track'):
+                if not gitworker.registries['track_hash_reg'].compare_against_entry(identifier=uuid, value=content):
                     logging.info(f"> Content hash condition satisfied <")
 
                     gitworker.update_repo_object(uuid, content)
-                    gitworker.update_hash_reg(uuid, content, reg_type='track')
+                    gitworker.registries['track_hash_reg'].update_entry(identifier=uuid, value=content)
                     gitworker.update_index_list(uuid)
                     gitworker.add_to_index()
                     gitworker.update_commit_message(f"{uuid}: {content['url']}, beacon gran: {self.beacon_gran['world']}, track_gran: {self.track_gran['world']}")
@@ -723,17 +667,17 @@ class TrackWorld:
                 for uuid in category_uuids:    
                     beacon=self.client.get_category(uuid, self.beacon_gran['category'])
                     logging.info(f">>> Resolving Category Object Tracking <<<")
-                    if not gitworker.compare_object_hash(uuid, beacon, reg_type='beacon'):
+                    if not gitworker.registries['beacon_hash_reg'].compare_against_entry(identifier=uuid, value=beacon):
                         logging.info(f">> Beacon hash condition satisfied <<")
-                        gitworker.update_hash_reg(uuid, beacon, reg_type='beacon')
+                        gitworker.registries['beacon_hash_reg'].update_entry(identifier=uuid, value=beacon)
                         content=self.client.get_category(uuid, self.track_gran['category'])
-                        if not gitworker.compare_object_hash(uuid, content, reg_type='track'):
+                        if not gitworker.registries['track_hash_reg'].compare_against_entry(identifier=uuid, value=content):
                             logging.info(f"> Content hash condition satisfied <")
 
                             categories_changed += 1
 
                             gitworker.update_repo_object(uuid, content)
-                            gitworker.update_hash_reg(uuid, content, reg_type='track')
+                            gitworker.registries['track_hash_reg'].update_entry(identifier=uuid, value=content)
                             gitworker.update_index_list(uuid)
                             gitworker.add_to_index()
                             gitworker.update_commit_message(f"{uuid}: {content['url']}, beacon gran: {self.beacon_gran['category']}, track_gran: {self.track_gran['category']}")
@@ -776,17 +720,17 @@ class TrackWorld:
                     for uuid in self.articles_mapping[cat_uuid]:
                         beacon=self.client.get_article(uuid, self.beacon_gran['article'])
                         logging.info(f">>> Resolving Article Object Tracking <<<")
-                        if not gitworker.compare_object_hash(uuid, beacon, reg_type='beacon'):
+                        if not gitworker.registries['beacon_hash_reg'].compare_against_entry(identifier=uuid, value=beacon):
                             logging.info(f">> Beacon hash condition satisfied <<")
-                            gitworker.update_hash_reg(uuid, beacon, reg_type='beacon')
+                            gitworker.registries['beacon_hash_reg'].update_entry(identifier=uuid, value=beacon)
                             content=self.client.get_article(uuid, self.track_gran['article'])
-                            if not gitworker.compare_object_hash(uuid, content, reg_type='track'):
+                            if not gitworker.registries['track_hash_reg'].compare_against_entry(identifier=uuid, value=content):
                                 logging.info(f"> Content hash condition satisfied <")
 
                                 articles_changed += 1
 
                                 gitworker.update_repo_object(uuid, content)
-                                gitworker.update_hash_reg(uuid, content, reg_type='track')
+                                gitworker.registries['track_hash_reg'].update_entry(identifier=uuid, value=content)
                                 gitworker.update_index_list(uuid)
                                 gitworker.add_to_index()
                                 gitworker.update_commit_message(f"{uuid}: {content['url']}, beacon gran: {self.beacon_gran['article']}, track_gran: {self.track_gran['article']}")
