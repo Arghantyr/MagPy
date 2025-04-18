@@ -24,16 +24,15 @@ class WAClient():
                     application_key,
                     authentication_token
                     )
-            logging.info(f"WAClient object initiated... with client: {self.client}")
+            logging.info(f"WAClient object initiated...")
         except Exception as e:
             logiing.warning(f"Could not initiate WAClient")
             raise Exception(f"{e}")
 
     @wau.endpoint_exceptions_wrapper
     def get_auth_user_id(self):
-        logging.info(f"get_auth_user_id: Fetching User identity... for client: {self.client}")
         result = self.client.user.identity()
-        logging.info(f"get_auth_user_id: Get auth user id result: {result}")
+        logging.info(f"Fetching user identity object...")
         return result
 
     @wau.endpoint_exceptions_wrapper
