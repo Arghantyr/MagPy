@@ -1,5 +1,7 @@
 import Utils
 import BackendUtils
+from APIClients import WAClient
+from APIUtils import WorldAnvilUtils as wau
 
 import os
 import json
@@ -51,8 +53,8 @@ class Secrets:
             with open(SECRET_PATH, mode='rt') as secret_file:
                 secrets=yaml.load(secret_file, yaml.Loader)
 
-            self.api_key=secrets['credentials']['api_key']
-            self.api_token=secrets['credentials']['api_token']
+            self.application_key=secrets['credentials']['application_key']
+            self.authentication_token=secrets['credentials']['authentication_token']
             self.repo_ssh_url=secrets['remote_repo']['remote_repository_url']
             self.worlds_list=secrets['track']['worlds']
             
@@ -182,219 +184,11 @@ class Gitworker:
             raise Exception(f"{e}")
 
 
-class WAClient:
-    def __init__(self, api_key, api_token):
-        try:
-            self.client=BoromirApiClient(SCRIPT_NAME,
-                                         MAGPY_REPO_URL,
-                                         VERSION,
-                                         api_key,
-                                         api_token
-                                         )
-            logging.info(f"WAClient initiated...")
-        except Exception as e:
-            logiing.warning(f"Could not initiate WAClient")
-            raise Exception(f"{e}")
-    def get_auth_user_id(self):
-        try:
-            logging.info(f"Fetching User identity...")
-            return self.client.user.identity()
-        except ConnectionException as connection_exception:
-            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
-            raise Exception(f"{connection_exception}")
-        except InternalServerException as internal_server_exception:
-            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
-            raise Exception(f"{internal_server_exception}")
-        except UnauthorizedRequest as unauthorized_request:
-            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
-            raise Exception(f"{unauthorized_request}")
-        except AccessForbidden as access_forbidden:
-            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
-            raise Exception(f"{access_forbidden}")
-        except ResourceNotFound as resource_not_found:
-            logging.warning(f"Requested resource not found. {resource_not_found}")
-            raise Exception(f"{resource_not_found}")
-        except UnprocessableDataProvided as unprocessable_data_provided:
-            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
-            raise Exception(f"{unprocessable_data_provided}")
-        except FailedRequest as failed_request:
-            logging.error(f"Request failed. {failed_request}")
-        except Exception as e:
-            logging.warning(f"Could not fetch user identity")
-            raise Exception(f"{e}")
-    def get_user_worlds(self, user_id:str=''):
-        try:
-            logging.info(f"Fetching worlds owned by user {user_id}")
-            return self.client.user.worlds(user_id)
-        except ConnectionException as connection_exception:
-            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
-            raise Exception(f"{connection_exception}")
-        except InternalServerException as internal_server_exception:
-            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
-            raise Exception(f"{internal_server_exception}")
-        except UnauthorizedRequest as unauthorized_request:
-            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
-            raise Exception(f"{unauthorized_request}")
-        except AccessForbidden as access_forbidden:
-            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
-            raise Exception(f"{access_forbidden}")
-        except ResourceNotFound as resource_not_found:
-            logging.warning(f"Requested resource not found. {resource_not_found}")
-            raise Exception(f"{resource_not_found}")
-        except UnprocessableDataProvided as unprocessable_data_provided:
-            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
-            raise Exception(f"{unprocessable_data_provided}")
-        except FailedRequest as failed_request:
-            logging.error(f"Request failed. {failed_request}")
-        except Exception as e:
-            logging.warning(f"Could not fetch worlds for user {user_id}")
-            raise Exception(f"{e}")
-    def get_world(self, world_uuid:str='', granularity:int=-1):
-        try:
-            logging.info(f"World object fetched. UUID: {world_uuid}, GRANULARITY: {granularity}")
-            return self.client.world.get(world_uuid, granularity)
-        except ConnectionException as connection_exception:
-            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
-            raise Exception(f"{connection_exception}")
-        except InternalServerException as internal_server_exception:
-            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
-            raise Exception(f"{internal_server_exception}")
-        except UnauthorizedRequest as unauthorized_request:
-            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
-            raise Exception(f"{unauthorized_request}")
-        except AccessForbidden as access_forbidden:
-            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
-            raise Exception(f"{access_forbidden}")
-        except ResourceNotFound as resource_not_found:
-            logging.warning(f"Requested resource not found. {resource_not_found}")
-            raise Exception(f"{resource_not_found}")
-        except UnprocessableDataProvided as unprocessable_data_provided:
-            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
-            raise Exception(f"{unprocessable_data_provided}")
-        except FailedRequest as failed_request:
-            logging.error(f"Request failed. {failed_request}")
-        except Exception as e:
-            logging.warning(f"Could not fetch world object. UUID: {world_uuid}, GRANULARITY: {granularity}")
-            raise Exception(f"{e}")
-    def get_category(self, category_uuid:str='', granularity:int=-1):
-        try:
-            logging.info(f"Category object fetched. UUID: {category_uuid}, GRANULARITY: {granularity}")
-            return self.client.category.get(category_uuid, granularity) 
-        except ConnectionException as connection_exception:
-            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
-            raise Exception(f"{connection_exception}")
-        except InternalServerException as internal_server_exception:
-            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
-            raise Exception(f"{internal_server_exception}")
-        except UnauthorizedRequest as unauthorized_request:
-            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
-            raise Exception(f"{unauthorized_request}")
-        except AccessForbidden as access_forbidden:
-            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
-            raise Exception(f"{access_forbidden}")
-        except ResourceNotFound as resource_not_found:
-            logging.warning(f"Requested resource not found. {resource_not_found}")
-            raise Exception(f"{resource_not_found}")
-        except UnprocessableDataProvided as unprocessable_data_provided:
-            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
-            raise Exception(f"{unprocessable_data_provided}")
-        except FailedRequest as failed_request:
-            logging.error(f"Request failed. {failed_request}")
-        except Exception as e:
-            logging.warning(f"Could not fetch category object. UUID: {category_uuid}, GRANULARITY: {granularity}")
-            raise Exception(f"{e}")
-    def get_article(self, article_uuid:str='', granularity:int=-1):
-        try:
-            logging.info(f"Article object fetched. UUID: {article_uuid}, GRANULARITY: {granularity}")
-            return self.client.article.get(article_uuid, granularity) 
-        except ConnectionException as connection_exception:
-            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
-            raise Exception(f"{connection_exception}")
-        except InternalServerException as internal_server_exception:
-            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
-            raise Exception(f"{internal_server_exception}")
-        except UnauthorizedRequest as unauthorized_request:
-            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
-            raise Exception(f"{unauthorized_request}")
-        except AccessForbidden as access_forbidden:
-            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
-            raise Exception(f"{access_forbidden}")
-        except ResourceNotFound as resource_not_found:
-            logging.warning(f"Requested resource not found. {resource_not_found}")
-            raise Exception(f"{resource_not_found}")
-        except UnprocessableDataProvided as unprocessable_data_provided:
-            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
-            raise Exception(f"{unprocessable_data_provided}")
-        except FailedRequest as failed_request:
-            logging.error(f"Request failed. {failed_request}")
-        except Exception as e:
-            logging.warning(f"Could not fetch article object. UUID: {article_uuid}, GRANULARITY: {granularity}")
-            raise Exception(f"{e}")
-    def get_world_categories_mapping(self, world_uuid:str=''):
-        try:
-            categories = [category['id'] for category in self.client.world.categories(world_uuid)]
-            logging.info(f"Categories fetched for world {world_uuid}: {', '.join(categories)}")
-            return {world_uuid: categories}
-        except ConnectionException as connection_exception:
-            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
-            raise Exception(f"{connection_exception}")
-        except InternalServerException as internal_server_exception:
-            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
-            raise Exception(f"{internal_server_exception}")
-        except UnauthorizedRequest as unauthorized_request:
-            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
-            raise Exception(f"{unauthorized_request}")
-        except AccessForbidden as access_forbidden:
-            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
-            raise Exception(f"{access_forbidden}")
-        except ResourceNotFound as resource_not_found:
-            logging.warning(f"Requested resource not found. {resource_not_found}")
-            raise Exception(f"{resource_not_found}")
-        except UnprocessableDataProvided as unprocessable_data_provided:
-            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
-            raise Exception(f"{unprocessable_data_provided}")
-        except FailedRequest as failed_request:
-            logging.error(f"Request failed. {failed_request}")
-        except Exception as e:
-            logging.warning(f"Could not fetch categories for world {world_uuid}")
-            raise Exception(f"{e}")
-    def get_category_articles_mapping(self, world_uuid:str='', category_uuids:list=[]):
-        try:
-            category_uuids.append('-1') #Account for uncategorized articles
-            articles_mapping={cat_uuid: [art['id'] for art in self.client.world.articles(world_uuid, cat_uuid)
-                                         ] for cat_uuid in category_uuids}
-            logging.info(f"Fetched category-article mapping for world {world_uuid}:\n{json.dumps(articles_mapping, indent=2)}")
-            return articles_mapping
-        except ConnectionException as connection_exception:
-            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
-            raise Exception(f"{connection_exception}")
-        except InternalServerException as internal_server_exception:
-            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
-            raise Exception(f"{internal_server_exception}")
-        except UnauthorizedRequest as unauthorized_request:
-            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
-            raise Exception(f"{unauthorized_request}")
-        except AccessForbidden as access_forbidden:
-            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
-            raise Exception(f"{access_forbidden}")
-        except ResourceNotFound as resource_not_found:
-            logging.warning(f"Requested resource not found. {resource_not_found}")
-            raise Exception(f"{resource_not_found}")
-        except UnprocessableDataProvided as unprocessable_data_provided:
-            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
-            raise Exception(f"{unprocessable_data_provided}")
-        except FailedRequest as failed_request:
-            logging.error(f"Request failed. {failed_request}")
-        except Exception as e:
-            logging.warning(f"Could not process category-article mapping for world {world_uuid} and categories: {', '.join(category_uuids)}")
-            raise Exception(f"{e}")
-
-
 class TrackWorld:
     def __init__(self,
                  url:str='',
                  track_changes:dict={},
-                 client:WAClient=None):
+                 client:WAClient=WAClient('', '')):
         try:
             self.url=url
             self.track_changes=track_changes
@@ -415,58 +209,16 @@ class TrackWorld:
         try:
             self.auth_user_id=self.client.get_auth_user_id()['id']
             logging.info(f"ID fetched for the authenticated user.")
-        except ConnectionException as connection_exception:
-            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
-            raise Exception(f"{connection_exception}")
-        except InternalServerException as internal_server_exception:
-            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
-            raise Exception(f"{internal_server_exception}")
-        except UnauthorizedRequest as unauthorized_request:
-            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
-            raise Exception(f"{unauthorized_request}")
-        except AccessForbidden as access_forbidden:
-            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
-            raise Exception(f"{access_forbidden}")
-        except ResourceNotFound as resource_not_found:
-            logging.warning(f"Requested resource not found. {resource_not_found}")
-            raise Exception(f"{resource_not_found}")
-        except UnprocessableDataProvided as unprocessable_data_provided:
-            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
-            raise Exception(f"{unprocessable_data_provided}")
-        except FailedRequest as failed_request:
-            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
-            logging.warning(f"Could not fetch ID for the authenticated user")
-            raise Exception(f"{e}")
+            raise Exception(f"Could not load user id. {e}")
     def load_world_uuid(self):
         try:
             worlds={world['url']: world['id'] for world in self.client.get_user_worlds(self.auth_user_id)}
              
             self.world_uuid=worlds[self.url]
             logging.info(f"ID loaded for the selected world: {self.world_uuid}")
-        except ConnectionException as connection_exception:
-            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
-            raise Exception(f"{connection_exception}")
-        except InternalServerException as internal_server_exception:
-            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
-            raise Exception(f"{internal_server_exception}")
-        except UnauthorizedRequest as unauthorized_request:
-            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
-            raise Exception(f"{unauthorized_request}")
-        except AccessForbidden as access_forbidden:
-            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
-            raise Exception(f"{access_forbidden}")
-        except ResourceNotFound as resource_not_found:
-            logging.warning(f"Requested resource not found. {resource_not_found}")
-            raise Exception(f"{resource_not_found}")
-        except UnprocessableDataProvided as unprocessable_data_provided:
-            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
-            raise Exception(f"{unprocessable_data_provided}")
-        except FailedRequest as failed_request:
-            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
-            logging.warning(f"Could not load world id for the selected world")
-            raise Exception(f"{e}")
+            raise Exception(f"Could not load world uuid. {e}")
     def load_category_mapping(self, track:bool=False):
         try:
             if track:
@@ -474,30 +226,8 @@ class TrackWorld:
                 self.category_mapping=self.client.get_world_categories_mapping(self.world_uuid)
             else:
                 logging.info(f"Category tracking: OFF.")
-                pass
-        except ConnectionException as connection_exception:
-            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
-            raise Exception(f"{connection_exception}")
-        except InternalServerException as internal_server_exception:
-            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
-            raise Exception(f"{internal_server_exception}")
-        except UnauthorizedRequest as unauthorized_request:
-            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
-            raise Exception(f"{unauthorized_request}")
-        except AccessForbidden as access_forbidden:
-            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
-            raise Exception(f"{access_forbidden}")
-        except ResourceNotFound as resource_not_found:
-            logging.warning(f"Requested resource not found. {resource_not_found}")
-            raise Exception(f"{resource_not_found}")
-        except UnprocessableDataProvided as unprocessable_data_provided:
-            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
-            raise Exception(f"{unprocessable_data_provided}")
-        except FailedRequest as failed_request:
-            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
-            logging.warning(f"Could not load category mapping: {e}")
-            raise Exception(f"{e}")
+            raise Exception(f"Could not load category mapping. {e}")
     def load_articles_dict(self, track:bool=False):
         try:
             if track:
@@ -507,30 +237,8 @@ class TrackWorld:
                 self.articles_mapping=self.client.get_category_articles_mapping(self.world_uuid, category_uuids)
             else:
                 logging.info(f"Articles tracking: OFF.")
-                pass
-        except ConnectionException as connection_exception:
-            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
-            raise Exception(f"{connection_exception}")
-        except InternalServerException as internal_server_exception:
-            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
-            raise Exception(f"{internal_server_exception}")
-        except UnauthorizedRequest as unauthorized_request:
-            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
-            raise Exception(f"{unauthorized_request}")
-        except AccessForbidden as access_forbidden:
-            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
-            raise Exception(f"{access_forbidden}")
-        except ResourceNotFound as resource_not_found:
-            logging.warning(f"Requested resource not found. {resource_not_found}")
-            raise Exception(f"{resource_not_found}")
-        except UnprocessableDataProvided as unprocessable_data_provided:
-            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
-            raise Exception(f"{unprocessable_data_provided}")
-        except FailedRequest as failed_request:
-            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
-            logging.warning(f"Could not load article mapping: {e}")
-            raise Exception(f"{e}")
+            raise Exception(f"Could not load articles mapping. {e}")
     def get_file_index_per_type(self, _type:str='world'):
         try:
             _file_index={}
@@ -589,31 +297,10 @@ class TrackWorld:
                 gitworker.post_commit(short_commit_message='File index updated')
                 gitworker.push_to_remote_repository()
             logging.info(f">>>> File index updated <<<<")
-        except ConnectionException as connection_exception:
-            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
-            raise Exception(f"{connection_exception}")
-        except InternalServerException as internal_server_exception:
-            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
-            raise Exception(f"{internal_server_exception}")
-        except UnauthorizedRequest as unauthorized_request:
-            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
-            raise Exception(f"{unauthorized_request}")
-        except AccessForbidden as access_forbidden:
-            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
-            raise Exception(f"{access_forbidden}")
-        except ResourceNotFound as resource_not_found:
-            logging.warning(f"Requested resource not found. {resource_not_found}")
-            raise Exception(f"{resource_not_found}")
-        except UnprocessableDataProvided as unprocessable_data_provided:
-            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
-            raise Exception(f"{unprocessable_data_provided}")
-        except FailedRequest as failed_request:
-            logging.error(f"Request failed. {failed_request}")
-
         except Exception as e:
-            raise Exception(f"{e}")
+            raise Exception(f"File index could not be updated. {e}")
     def resolve_world(self, gitworker:Gitworker=None):
-        try: 
+        try:
             uuid=self.world_uuid
             beacon=self.client.get_world(uuid, self.beacon_gran['world'])
             logging.info(f">>> Resolving World Object Tracking <<<")
@@ -632,31 +319,8 @@ class TrackWorld:
 
                     gitworker.post_commit(short_commit_message='World update')
                     gitworker.push_to_remote_repository()
-                else:
-                    pass
-        except ConnectionException as connection_exception:
-            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
-            raise Exception(f"{connection_exception}")
-        except InternalServerException as internal_server_exception:
-            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
-            raise Exception(f"{internal_server_exception}")
-        except UnauthorizedRequest as unauthorized_request:
-            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
-            raise Exception(f"{unauthorized_request}")
-        except AccessForbidden as access_forbidden:
-            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
-            raise Exception(f"{access_forbidden}")
-        except ResourceNotFound as resource_not_found:
-            logging.warning(f"Requested resource not found. {resource_not_found}")
-            raise Exception(f"{resource_not_found}")
-        except UnprocessableDataProvided as unprocessable_data_provided:
-            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
-            raise Exception(f"{unprocessable_data_provided}")
-        except FailedRequest as failed_request:
-            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
-            logging.warning(f"Could not resolve world object tracking: {e}")
-            raise Exception(f"{e}")
+            raise Exception(f">>> Cannot resolve world. {e}")
     def resolve_categories(self, gitworker:Gitworker=None):
         try:
             if self.track_changes['categories']:
@@ -688,29 +352,8 @@ class TrackWorld:
                     categories_changed=0
             else:
                 logging.info(f"Categories tracking disabled in configuration file.")
-        except ConnectionException as connection_exception:
-            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
-            raise Exception(f"{connection_exception}")
-        except InternalServerException as internal_server_exception:
-            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
-            raise Exception(f"{internal_server_exception}")
-        except UnauthorizedRequest as unauthorized_request:
-            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
-            raise Exception(f"{unauthorized_request}")
-        except AccessForbidden as access_forbidden:
-            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
-            raise Exception(f"{access_forbidden}")
-        except ResourceNotFound as resource_not_found:
-            logging.warning(f"Requested resource not found. {resource_not_found}")
-            raise Exception(f"{resource_not_found}")
-        except UnprocessableDataProvided as unprocessable_data_provided:
-            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
-            raise Exception(f"{unprocessable_data_provided}")
-        except FailedRequest as failed_request:
-            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
-            logging.warning(f"Could not resolve category objects tracking: {e}")
-            raise Exception(f"{e}") 
+            raise Exception(f">>> Cannot resolve categories. {e}")
     def resolve_articles(self, gitworker:Gitworker=None):
         try:
             if self.track_changes['articles']:
@@ -741,44 +384,23 @@ class TrackWorld:
                         articles_changed=0
             else:
                 logging.info(f"Articles tracking disabled in configuration file.")
-        except ConnectionException as connection_exception:
-            logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
-            raise Exception(f"{connection_exception}")
-        except InternalServerException as internal_server_exception:
-            logging.warning(f"WorldAnvil server unable to process request. {internal_server_exception}")
-            raise Exception(f"{internal_server_exception}")
-        except UnauthorizedRequest as unauthorized_request:
-            logging.warning(f"User unauthorized to process this request. {unauthorized_request}")
-            raise Exception(f"{unauthorized_request}")
-        except AccessForbidden as access_forbidden:
-            logging.warning(f"Invalid permissions to view requested resource. {access_forbidden}")
-            raise Exception(f"{access_forbidden}")
-        except ResourceNotFound as resource_not_found:
-            logging.warning(f"Requested resource not found. {resource_not_found}")
-            raise Exception(f"{resource_not_found}")
-        except UnprocessableDataProvided as unprocessable_data_provided:
-            logging.error(f"Request could not be processed. {unprocessable_data_provided}")
-            raise Exception(f"{unprocessable_data_provided}")
-        except FailedRequest as failed_request:
-            logging.error(f"Request failed. {failed_request}")
         except Exception as e:
-            logging.warning(f"Could not resolve article objects tracking: {e}")
-            raise Exception(f"{e}")
-
+            raise Exception(f">>> Cannot resolve articles. {e}")
 
 
 
 def main():
     secrets=Secrets()
     gitw=Gitworker(secrets)
-    wacli=WAClient(secrets.api_key, secrets.api_token)
+    wacli=WAClient(application_key=secrets.application_key,
+                   authentication_token=secrets.authentication_token)
 
 
     while datetime.now() < datetime.strptime(QUIT_AT, '%Y-%m-%d %H:%M' ):
         for _world in secrets.worlds_list:
             tr = TrackWorld(_world['url'],
                             _world['track_changes'],
-                            wacli) 
+                            wacli)
             tr.update_file_index(gitw)
             tr.resolve_world(gitw)
             tr.resolve_categories(gitw)
