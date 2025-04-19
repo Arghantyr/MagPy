@@ -208,7 +208,7 @@ class TrackWorld:
     def load_auth_user_id(self):
         try:
             self.auth_user_id=self.client.get_auth_user_id()['id']
-            logging.info(f"ID fetched for the authenticated user. Value: {self.auth_user_id}, is string: {isinstance(self.auth_user_id, str)}")
+            logging.info(f"ID fetched for the authenticated user.")
         except Exception as e:
             raise Exception(f"Could not load user id. {e}")
     def load_world_uuid(self):
