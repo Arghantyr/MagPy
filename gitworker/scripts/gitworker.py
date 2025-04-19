@@ -162,7 +162,7 @@ class Gitworker:
         except Exception as e:
             logging.warning(f"Unable to post commit")
             raise Exception(f"{e}")
-
+    
     def update_repo_object(self, uuid:str=NULL_UUID, new_content:dict|list={}):
         try:
             with open(f'{REPO_PATH}/{self.remote_repo_name}/{uuid}', mode='w') as file:
@@ -208,11 +208,12 @@ class TrackWorld:
     def load_auth_user_id(self):
         try:
             self.auth_user_id=self.client.get_auth_user_id()['id']
-            logging.info(f"ID fetched for the authenticated user.")
+            logging.info(f"ID fetched for the authenticated user. Value: {self.auth_user_id}, is string: {isinstance(self.auth_user_id, str)}")
         except Exception as e:
             raise Exception(f"Could not load user id. {e}")
     def load_world_uuid(self):
         try:
+            logging.info(f"User id: {self.auth_user_id}")
             worlds={world['url']: world['id'] for world in self.client.get_user_worlds(self.auth_user_id)}
              
             self.world_uuid=worlds[self.url]

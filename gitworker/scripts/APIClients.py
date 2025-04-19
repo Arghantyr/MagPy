@@ -1,10 +1,11 @@
 import Utils
-from APIUtils import WorldAnvilUtils as wau #endpoint_exceptions_wrapper
-
-
+from APIUtils import WorldAnvilUtils as wau
 from pywaclient.api import BoromirApiClient
 import logging
 import json
+from functools import wraps
+from string import hexdigits
+
 
 
 
@@ -14,7 +15,7 @@ SCRIPT_VERSION='0.1'
 
 
 
-class WAClient():
+class WAClient(object):
     def __init__(self, application_key: str, authentication_token: str):
         try:
             self.client=BoromirApiClient(
@@ -26,8 +27,44 @@ class WAClient():
                     )
             logging.info(f"WAClient object initiated...")
         except Exception as e:
-            logiing.warning(f"Could not initiate WAClient")
+            logging.warning(f"Could not initiate WAClient")
             raise Exception(f"{e}")
+
+    def verify_uuid(func):
+        @wraps(func)
+        def inner(self, uuid, *args, **kwargs):
+            try:
+                if uuid is None:
+                    raise Exception(f"UUID field cannot be empty.")
+                if not isinstance(uuid, str):
+                    raise TypeError(f"Invalid type. UUID can only be of type 'string'")
+                if len(uuid) != 36:
+                    raise Exception(f"Invalid UUID length.")
+                if set(uuid).difference(set(''.join(['-', hexdigits]))) != set():
+                    raise Exception(f"Forbidden characters in UUID.")
+                if [len(sub) for sub in uuid.split('-')] != [8,4,4,4,12]:
+                    raise Exception(f"Invalid UUID structure.")
+
+                return func(self, uuid, *args, **kwargs)
+            except Exception as e:
+                raise Exception(f"{e}")
+        return inner
+        
+    def verify_granularity(func):
+        @wraps(func)
+        def inner(self, uuid, granularity, *args, **kwargs):
+            try:
+                if granularity is None:
+                    raise Exception(f"Granularity field cannot be empty.")
+                if not isinstance(granularity, int):
+                    raise TypeError(f"Invalid type. Granularity can only be of type 'int'")
+                if int(granularity) not in range(-1, 10, 1):
+                    raise ValueError(f"Granularity value out of range.")
+
+                return func(self, uuid, granularity, *args, **kwargs)
+            except Exception as e:
+                raise Exception(f"{e}")
+        return inner
 
     @wau.endpoint_exceptions_wrapper
     def get_auth_user_id(self):
@@ -36,37 +73,46 @@ class WAClient():
         return result
 
     @wau.endpoint_exceptions_wrapper
-    def get_user_worlds(self, user_id:str=''):
-        logging.info(f"Fetching worlds owned by user {user_id}")
-        return self.client.user.worlds(user_id)
+    @verify_uuid
+    def get_user_worlds(self, uuid:str=''):
+        logging.info(f"Fetching worlds owned by user {uuid}")
+        return self.client.user.worlds(uuid)
 
     @wau.endpoint_exceptions_wrapper
-    def get_world(self, world_uuid:str='', granularity:int=-1):
-        logging.info(f"World object fetched. UUID: {world_uuid}, GRANULARITY: {granularity}")
-        return self.client.world.get(world_uuid, granularity)
+    @verify_granularity
+    @verify_uuid
+    def get_world(self, uuid:str='', granularity:int=-1):
+        logging.info(f"World object fetched. UUID: {uuid}, GRANULARITY: {granularity}")
+        return self.client.world.get(uuid, granularity)
 
     @wau.endpoint_exceptions_wrapper
-    def get_category(self, category_uuid:str='', granularity:int=-1):
-        logging.info(f"Category object fetched. UUID: {category_uuid}, GRANULARITY: {granularity}")
-        return self.client.category.get(category_uuid, granularity)
+    @verify_granularity
+    @verify_uuid
+    def get_category(self, uuid:str='', granularity:int=-1):
+        logging.info(f"Category object fetched. UUID: {uuid}, GRANULARITY: {granularity}")
+        return self.client.category.get(uuid, granularity)
 
     @wau.endpoint_exceptions_wrapper
-    def get_article(self, article_uuid:str='', granularity:int=-1):
-        logging.info(f"Article object fetched. UUID: {article_uuid}, GRANULARITY: {granularity}")
-        return self.client.article.get(article_uuid, granularity)
+    @verify_granularity
+    @verify_uuid
+    def get_article(self, uuid:str='', granularity:int=-1):
+        logging.info(f"Article object fetched. UUID: {uuid}, GRANULARITY: {granularity}")
+        return self.client.article.get(uuid, granularity)
 
     @wau.endpoint_exceptions_wrapper
-    def get_world_categories_mapping(self, world_uuid:str=''):
-        categories = [category['id'] for category in self.client.world.categories(world_uuid)]
-        logging.info(f"Categories fetched for world {world_uuid}: {', '.join(categories)}")
-        return {world_uuid: categories}
+    @verify_uuid
+    def get_world_categories_mapping(self, uuid:str=''):
+        categories = [category['id'] for category in self.client.world.categories(uuid)]
+        logging.info(f"Categories fetched for world {uuid}: {', '.join(categories)}")
+        return {uuid: categories}
 
     @wau.endpoint_exceptions_wrapper
-    def get_category_articles_mapping(self, world_uuid:str='', category_uuids:list=[]):
+    @verify_uuid
+    def get_category_articles_mapping(self, uuid:str='', category_uuids:list=[]):
         category_uuids.append('-1') #Account for uncategorized articles
-        articles_mapping={cat_uuid: [art['id'] for art in self.client.world.articles(world_uuid, cat_uuid)
+        articles_mapping={cat_uuid: [art['id'] for art in self.client.world.articles(uuid, cat_uuid)
                                     ] for cat_uuid in category_uuids}
-        logging.info(f"Fetched category-article mapping for world {world_uuid}:\n{json.dumps(articles_mapping, indent=2)}")
+        logging.info(f"Fetched category-article mapping for world {uuid}:\n{json.dumps(articles_mapping, indent=2)}")
         return articles_mapping
 
 
