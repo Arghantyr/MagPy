@@ -29,7 +29,8 @@ class WAClient(object):
         except Exception as e:
             logging.warning(f"Could not initiate WAClient")
             raise Exception(f"{e}")
-
+    
+    # Input verification decorators
     def verify_uuid(func):
         @wraps(func)
         def inner(self, uuid, *args, **kwargs):
@@ -65,6 +66,7 @@ class WAClient(object):
             except Exception as e:
                 raise Exception(f"{e}")
         return inner
+
 
     @wau.endpoint_exceptions_wrapper
     def get_auth_user_id(self):
