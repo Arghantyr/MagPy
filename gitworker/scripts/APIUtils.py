@@ -1,5 +1,6 @@
 from functools import wraps
 import logging
+from time import sleep
 from pywaclient.exceptions import (
         ConnectionException,
         UnexpectedStatusException,
@@ -11,6 +12,10 @@ from pywaclient.exceptions import (
         FailedRequest
         )
 
+
+CONNECTION_SLEEP_TIME_S=60
+
+
 class WorldAnvilUtils(object):
     def endpoint_exceptions_wrapper(func):
         @wraps(func)
@@ -18,6 +23,7 @@ class WorldAnvilUtils(object):
             try:
                 return func(self, *args, **kwargs)
             except ConnectionException as connection_exception:
+                time.sleep(CONNECTION_SLEEP_TIME_S)
                 logging.warning(f"Unable to connect to WorldAnvil API. {connection_exception}")
                 raise Exception(f"{connection_exception}")
             except InternalServerException as internal_server_exception:
