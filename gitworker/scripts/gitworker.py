@@ -2,6 +2,7 @@ import Utils
 import BackendUtils
 from APIClients import WAClient
 from APIUtils import WorldAnvilUtils as wau
+from Secrets import WorldAnvilSecrets
 
 import os
 import json
@@ -44,7 +45,7 @@ FILE_INDEX_PATH='/home/gitworker/repo/file_index'
 QUIT_AT='2038-01-11 11:01'
 SECRET_PATH='/run/secrets/secret_config'
 PING_INTERVAL_S=60
-
+"""
 class Secrets:
     def __init__(self):
         self.load_secret()
@@ -62,10 +63,10 @@ class Secrets:
         except Exception as e:
             logging.warning("Unable to process 'secrets' file.")
             raise Exceptions(f"{e}")
-
+"""
 
 class Gitworker:
-    def __init__(self, secret_obj:Secrets=None):
+    def __init__(self, secret_obj=None):
         self.load_secret(secret_obj)
         self.load_repo()
         self.load_registries()
@@ -73,7 +74,7 @@ class Gitworker:
         self.initiate_commit_backend()
 
         logging.info("Gitworker object initiated.")
-    def load_secret(self, secret_obj:Secrets=None):
+    def load_secret(self, secret_obj=None):
         try:
             self.repo_ssh_url=secret_obj.repo_ssh_url
             logging.info("Gitworker: secrets loaded...")
@@ -391,14 +392,14 @@ class TrackWorld:
 
 
 def main():
-    secrets=Secrets()
-    gitw=Gitworker(secrets)
-    wacli=WAClient(application_key=secrets.application_key,
-                   authentication_token=secrets.authentication_token)
+    wa_secrets=WorldAnvilSecrets(SECRET_PATH)
+    gitw=Gitworker(wa_secrets)
+    wacli=WAClient(application_key=wa_secrets.application_key,
+                   authentication_token=wa_secrets.authentication_token)
 
 
     while datetime.now() < datetime.strptime(QUIT_AT, '%Y-%m-%d %H:%M' ):
-        for _world in secrets.worlds_list:
+        for _world in wa_secrets.worlds_list:
             tr = TrackWorld(_world['url'],
                             _world['track_changes'],
                             wacli)

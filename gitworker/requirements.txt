@@ -1,3 +1,11 @@
-pywaclient
-GitPython
-PyYAML
+# Python WorldAnvil API wrapper
+pywaclient == 1.6.8
+
+# git management
+GitPython == 3.1.44
+
+# YAML (secrets) loaders
+PyYAML == 6.0.2
+
+# Schema-based validation
+cerberus == 1.3.7

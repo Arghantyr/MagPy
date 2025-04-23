@@ -1,9 +1,8 @@
-import yaml
+from gitworker.scripts.Secrets import WorldAnvilSecrets
 
-with open('./secret.yaml', mode='r') as file:
-    secret_yaml=yaml.load(file, yaml.Loader)
+wa_secrets=WorldAnvilSecrets('./secret.yaml')
 
-REMOTE_REPO_SSH_URL=secret_yaml['remote_repo']['remote_repository_url']
+REMOTE_REPO_SSH_URL=wa_secrets.repo_ssh_url
 REMOTE_REPO_NAME=REMOTE_REPO_SSH_URL.rstrip('.git').split('/')[-1]
 
 env_list=[

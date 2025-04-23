@@ -31,6 +31,8 @@ RUN source ./gitworker-venv/bin/activate && \
 
 COPY --chown=gitworker ./scripts/sys_setup.sh /opt/gitworker/scripts/sys_setup.sh
 COPY --chown=gitworker ./scripts/Utils.py /opt/gitworker/scripts/Utils.py
+COPY --chown=gitworker ./scripts/Schemas.py /opt/gitworker/scripts/Schemas.py
+COPY --chown=gitworker ./scripts/Secrets.py /opt/gitworker/scripts/Secrets.py
 COPY --chown=gitworker ./scripts/BackendUtils.py /opt/gitworker/scripts/BackendUtils.py
 COPY --chown=gitworker ./scripts/APIClients.py /opt/gitworker/scripts/APIClients.py
 COPY --chown=gitworker ./scripts/APIUtils.py /opt/gitworker/scripts/APIUtils.py
