@@ -45,25 +45,6 @@ FILE_INDEX_PATH='/home/gitworker/repo/file_index'
 QUIT_AT='2038-01-11 11:01'
 SECRET_PATH='/run/secrets/secret_config'
 PING_INTERVAL_S=60
-"""
-class Secrets:
-    def __init__(self):
-        self.load_secret()
-    def load_secret(self):
-        try:
-            with open(SECRET_PATH, mode='rt') as secret_file:
-                secrets=yaml.load(secret_file, yaml.Loader)
-
-            self.application_key=secrets['credentials']['application_key']
-            self.authentication_token=secrets['credentials']['authentication_token']
-            self.repo_ssh_url=secrets['remote_repo']['remote_repository_url']
-            self.worlds_list=secrets['track']['worlds']
-            
-            logging.info("Secrets loaded.")
-        except Exception as e:
-            logging.warning("Unable to process 'secrets' file.")
-            raise Exceptions(f"{e}")
-"""
 
 class Gitworker:
     def __init__(self, secret_obj=None):
