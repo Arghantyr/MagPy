@@ -178,7 +178,7 @@ class TrackWorld:
             self.client=client
             self.load_auth_user_id()
             self.load_world_uuid()
-
+            self.load_user_worlds_mapping(self.track_changes['world'])
             self.load_category_mapping(self.track_changes['categories'])
             self.load_articles_dict(self.track_changes['articles'])
 
@@ -203,6 +203,15 @@ class TrackWorld:
             logging.info(f"ID loaded for the selected world: {self.world_uuid}")
         except Exception as e:
             raise Exception(f"Could not load world uuid. {e}")
+    def load_user_world_mapping(self, track:bool=False): 
+        try:
+            if track:
+                logging.info(f"World tracking: ON. Fetching user-world mapping...")
+                self.world_mapping={ self.auth_user_id: [world['id'] for world in self.client.get_user_worlds(self.auth_user_id) if world['id'] == self.world_uuid] }
+            else:
+                logging.info(f"World tracking: OFF.")
+        except Exception as e:
+            raise Exception(f"Could not load user-world mapping. {e}")
     def load_category_mapping(self, track:bool=False):
         try:
             if track:
@@ -285,24 +294,32 @@ class TrackWorld:
             raise Exception(f"File index could not be updated. {e}")
     def resolve_world(self, gitworker:Gitworker=None):
         try:
-            uuid=self.world_uuid
-            beacon=self.client.get_world(uuid, self.beacon_gran['world'])
-            logging.info(f">>> Resolving World Object Tracking <<<")
-            if not gitworker.registries['beacon_hash_reg'].compare_against_entry(identifier=uuid, value=beacon):
-                logging.info(f">> Beacon hash condition satisfied <<")
-                gitworker.registries['beacon_hash_reg'].update_entry(identifier=uuid, value=beacon)
-                content=self.client.get_world(uuid, self.track_gran['world'])
-                if not gitworker.registries['track_hash_reg'].compare_against_entry(identifier=uuid, value=content):
-                    logging.info(f"> Content hash condition satisfied <")
+            #uuid=self.world_uuid
+            if self.track_changes['world']:
+                for user_uuid in self.world_mapping:
+                    logging.info(f">>>> Resolving World belonging to User: {user_uuid} <<<<")
+                    worlds_changed=0
+                    for uuid in self.world_mapping[user_uuid]: 
+                        beacon=self.client.get_world(uuid, self.beacon_gran['world'])
+                        logging.info(f">>> Resolving World Object Tracking <<<")
+                        if not gitworker.registries['beacon_hash_reg'].compare_against_entry(identifier=uuid, value=beacon):
+                            logging.info(f">> Beacon hash condition satisfied <<")
+                            gitworker.registries['beacon_hash_reg'].update_entry(identifier=uuid, value=beacon)
+                            content=self.client.get_world(uuid, self.track_gran['world'])
+                            if not gitworker.registries['track_hash_reg'].compare_against_entry(identifier=uuid, value=content):
+                                logging.info(f"> Content hash condition satisfied <")
 
-                    gitworker.update_repo_object(uuid, content)
-                    gitworker.registries['track_hash_reg'].update_entry(identifier=uuid, value=content)
-                    gitworker.update_index_list(uuid)
-                    gitworker.add_to_index()
-                    gitworker.update_commit_message(f"{uuid}: {content['url']}, beacon gran: {self.beacon_gran['world']}, track_gran: {self.track_gran['world']}")
-
+                                gitworker.update_repo_object(uuid, content)
+                                gitworker.registries['track_hash_reg'].update_entry(identifier=uuid, value=content)
+                                gitworker.update_index_list(uuid)
+                                gitworker.add_to_index()
+                                gitworker.update_commit_message(f"{uuid}: {content['url']}, beacon gran: {self.beacon_gran['world']}, track_gran: {self.track_gran['world']}")
+                if worlds_changed > 0:
                     gitworker.post_commit(short_commit_message='World update')
                     gitworker.push_to_remote_repository()
+                    worlds_changed=0
+            else:
+                logging.info(f"World tracking disabled in configuration file.")
         except Exception as e:
             raise Exception(f">>> Cannot resolve world. {e}")
     def resolve_categories(self, gitworker:Gitworker=None):

@@ -44,8 +44,13 @@ WORLDANVIL_SECRET_SCHEMA={
                                     'required': True,
                                     'type': 'dict',
                                     'nullable': True,
-                                    'allowed': ['categories', 'articles', 'article_blocks', 'images', 'maps'],
+                                    'allowed': ['world', 'categories', 'articles', 'article_blocks', 'images', 'maps'],
                                     'schema': {
+                                        'world': {
+                                            'required': True,
+                                            'type': 'boolean',
+                                            'nullable': False
+                                        },
                                         'categories': {
                                             'required': False,
                                             'type': 'boolean',
