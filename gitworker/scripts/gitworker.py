@@ -178,7 +178,7 @@ class TrackWorld:
             self.client=client
             self.load_auth_user_id()
             self.load_world_uuid()
-            self.load_user_worlds_mapping(self.track_changes['world'])
+            self.load_user_world_mapping(self.track_changes['world'])
             self.load_category_mapping(self.track_changes['categories'])
             self.load_articles_dict(self.track_changes['articles'])
 
@@ -308,6 +308,8 @@ class TrackWorld:
                             content=self.client.get_world(uuid, self.track_gran['world'])
                             if not gitworker.registries['track_hash_reg'].compare_against_entry(identifier=uuid, value=content):
                                 logging.info(f"> Content hash condition satisfied <")
+
+                                worlds_changed += 1
 
                                 gitworker.update_repo_object(uuid, content)
                                 gitworker.registries['track_hash_reg'].update_entry(identifier=uuid, value=content)
