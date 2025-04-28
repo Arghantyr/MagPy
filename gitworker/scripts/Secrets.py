@@ -1,4 +1,4 @@
-from Schemas import WORLDANVIL_SECRET_SCHEMA
+#from Schemas import WORLDANVIL_SECRET_SCHEMA
 
 from cerberus import Validator
 import yaml
@@ -8,8 +8,9 @@ import logging
 
 
 class WorldAnvilSecrets:
-    def __init__(self, secret_filepath:str=''):
+    def __init__(self, secret_filepath:str='', wa_secret_schema:dict={}):
         self.secret_filepath=secret_filepath
+        self.wa_secret_schema=wa_secret_schema
         self.initialize_secret_fields()
     def load_secret(self):
         try:
@@ -21,7 +22,7 @@ class WorldAnvilSecrets:
             raise Exception(f"{e}")
     def validate_secret(self):
         try:
-            val=Validator(WORLDANVIL_SECRET_SCHEMA)
+            val=Validator(self.wa_secret_schema)
             val.validate(self.load_secret())
             return val.errors=={}
 

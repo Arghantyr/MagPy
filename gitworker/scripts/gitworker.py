@@ -3,6 +3,7 @@ import BackendUtils
 from APIClients import WAClient
 from APIUtils import WorldAnvilUtils as wau
 from Secrets import WorldAnvilSecrets
+from Schemas import WORLDANVIL_SECRET_SCHEMA
 
 import os
 import json
@@ -307,32 +308,33 @@ class TrackWorld:
     def resolve_categories(self, gitworker:Gitworker=None):
         try:
             if self.track_changes['categories']:
-                world_uuid=self.world_uuid
-                category_uuids=self.category_mapping[self.world_uuid]
-
-                categories_changed=0
-                for uuid in category_uuids:    
-                    beacon=self.client.get_category(uuid, self.beacon_gran['category'])
-                    logging.info(f">>> Resolving Category Object Tracking <<<")
-                    if not gitworker.registries['beacon_hash_reg'].compare_against_entry(identifier=uuid, value=beacon):
-                        logging.info(f">> Beacon hash condition satisfied <<")
-                        gitworker.registries['beacon_hash_reg'].update_entry(identifier=uuid, value=beacon)
-                        content=self.client.get_category(uuid, self.track_gran['category'])
-                        if not gitworker.registries['track_hash_reg'].compare_against_entry(identifier=uuid, value=content):
-                            logging.info(f"> Content hash condition satisfied <")
-
-                            categories_changed += 1
-
-                            gitworker.update_repo_object(uuid, content)
-                            gitworker.registries['track_hash_reg'].update_entry(identifier=uuid, value=content)
-                            gitworker.update_index_list(uuid)
-                            gitworker.add_to_index()
-                            gitworker.update_commit_message(f"{uuid}: {content['url']}, beacon gran: {self.beacon_gran['category']}, track_gran: {self.track_gran['category']}")
-
-                if categories_changed > 0:
-                    gitworker.post_commit(short_commit_message='Categories update')
-                    gitworker.push_to_remote_repository()
+                #world_uuid=self.world_uuid
+                #category_uuids=self.category_mapping[self.world_uuid]
+                for world_uuid in self.category_mapping:
+                    logging.info(f">>>> Resolving Categories belonging to World: {world_uuid} <<<<")
                     categories_changed=0
+                    for uuid in self.category_mapping[world_uuid]: 
+                        beacon=self.client.get_category(uuid, self.beacon_gran['category'])
+                        logging.info(f">>> Resolving Category Object Tracking <<<")
+                        if not gitworker.registries['beacon_hash_reg'].compare_against_entry(identifier=uuid, value=beacon):
+                            logging.info(f">> Beacon hash condition satisfied <<")
+                            gitworker.registries['beacon_hash_reg'].update_entry(identifier=uuid, value=beacon)
+                            content=self.client.get_category(uuid, self.track_gran['category'])
+                            if not gitworker.registries['track_hash_reg'].compare_against_entry(identifier=uuid, value=content):
+                                logging.info(f"> Content hash condition satisfied <")
+
+                                categories_changed += 1
+
+                                gitworker.update_repo_object(uuid, content)
+                                gitworker.registries['track_hash_reg'].update_entry(identifier=uuid, value=content)
+                                gitworker.update_index_list(uuid)
+                                gitworker.add_to_index()
+                                gitworker.update_commit_message(f"{uuid}: {content['url']}, beacon gran: {self.beacon_gran['category']}, track_gran: {self.track_gran['category']}")
+
+                    if categories_changed > 0:
+                        gitworker.post_commit(short_commit_message='Categories update')
+                        gitworker.push_to_remote_repository()
+                        categories_changed=0
             else:
                 logging.info(f"Categories tracking disabled in configuration file.")
         except Exception as e:
@@ -373,7 +375,7 @@ class TrackWorld:
 
 
 def main():
-    wa_secrets=WorldAnvilSecrets(SECRET_PATH)
+    wa_secrets=WorldAnvilSecrets(SECRET_PATH, WORLDANVIL_SECRET_SCHEMA)
     gitw=Gitworker(wa_secrets)
     wacli=WAClient(application_key=wa_secrets.application_key,
                    authentication_token=wa_secrets.authentication_token)
