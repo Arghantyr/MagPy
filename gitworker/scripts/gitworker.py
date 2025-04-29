@@ -183,10 +183,11 @@ class TrackWorld:
             self.load_world_uuid()
             self.load_user_world_mapping(self.track_changes['world'])
             self.load_category_mapping(self.track_changes['categories'])
-            self.load_articles_dict(self.track_changes['articles'])
-
-            self.set_track_granularities()
-            self.set_beacon_granularities()
+            self.load_articles_mapping(self.track_changes['articles'])
+            
+            self.set_granularities()
+            #self.set_track_granularities()
+            #self.set_beacon_granularities()
             logging.info(f">>> TrackWorld object initiated for world {self.world_uuid} owned by user {self.auth_user_id}. Track changes settings:\n{json.dumps(self.track_changes, indent=2)}")
         except Exception as e:
             logging.warning(f"TrackWorld object could not be created")
@@ -224,7 +225,7 @@ class TrackWorld:
                 logging.info(f"Category tracking: OFF.")
         except Exception as e:
             raise Exception(f"Could not load category mapping. {e}")
-    def load_articles_dict(self, track:bool=False):
+    def load_articles_mapping(self, track:bool=False):
         try:
             if track:
                 logging.info(f"Articles tracking: ON. Fetching article mapping...")
@@ -252,6 +253,29 @@ class TrackWorld:
             return _file_index
         except Exception as e:
             raise Exception(f"{e}")
+
+    def set_granularities(self):
+        try:
+            self.track_gran={
+                    'world': 1,
+                    'categories': 1,
+                    'articles': 1
+            }
+            logging.info(f"Tracking granularities set:\n{json.dumps(self.track_gran, indent=2)}")
+
+            self.beacon_gran={
+                    'world': 0,
+                    'categories': 0,
+                    'articles': -1
+            }
+            logging.info(f"Beacon granularities set:\n{json.dumps(self.beacon_gran, indent=2)}")
+            assert all([self.beacon_gran[prop] <= self.track_gran[prop] for prop in self.track_gran.keys()]) == True
+        except AssertionError:
+            raise Exception("Invalid granularity settings. Beacon must be <= than Track.")
+        except Exception as e:
+            logging.warning(f"Could not set granularities: {e}")
+            raise Exception(f"{e}")
+    """
     def set_track_granularities(self):
         try:
             self.track_gran={
@@ -276,13 +300,15 @@ class TrackWorld:
             raise Exception("Invalid granularity settings. Beacon must be <= than Track.")
         except Exception as e:
             raise Exception(f"{e}")
+    """
+
     def update_file_index(self, gitworker:Gitworker=None):
         try:
             temp_file_index=gitworker.registries['file_index'].get_registry()
-            world_file_index=self.get_file_index_per_type(_type='world')
-            temp_file_index.update(world_file_index)
+            #world_file_index=self.get_file_index_per_type(_type='world')
+            #temp_file_index.update(world_file_index)
 
-            for _type in ['categories', 'articles']:
+            for _type in ['world', 'categories', 'articles']:
                 if self.track_changes[_type]:
                     resolved_file_index=self.get_file_index_per_type(_type=_type)
                     temp_file_index.update(resolved_file_index)
