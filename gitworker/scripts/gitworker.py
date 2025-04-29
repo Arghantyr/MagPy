@@ -181,9 +181,7 @@ class TrackWorld:
             self.apiobj_rels=apiobj_rels
             self.load_auth_user_id()
             self.load_world_uuid()
-            self.load_user_world_mapping(self.track_changes['world'])
-            self.load_category_mapping(self.track_changes['categories'])
-            self.load_articles_mapping(self.track_changes['articles'])
+            self.load_mappings()
             
             self.set_granularities()
             logging.info(f">>> TrackWorld object initiated for world {self.world_uuid} owned by user {self.auth_user_id}. Track changes settings:\n{json.dumps(self.track_changes, indent=2)}")
@@ -205,35 +203,24 @@ class TrackWorld:
             logging.info(f"ID loaded for the selected world: {self.world_uuid}")
         except Exception as e:
             raise Exception(f"Could not load world uuid. {e}")
-    def load_user_world_mapping(self, track:bool=False): 
+
+    def load_mappings(self):
         try:
-            if track:
-                logging.info(f"World tracking: ON. Fetching user-world mapping...")
-                self.world_mapping={ self.auth_user_id: [world['id'] for world in self.client.get_user_worlds(self.auth_user_id) if world['id'] == self.world_uuid] }
-            else:
-                logging.info(f"World tracking: OFF.")
+            wa_mapping_api_generators = {
+                    'world': { self.auth_user_id: [world['id'] for world in self.client.get_user_worlds(self.auth_user_id) if world['id'] == self.world_uuid] },
+                    'categories': self.client.get_world_categories_mapping(self.world_uuid),
+                    'articles': self.client.get_category_articles_mapping(self.world_uuid, self.client.get_world_categories_mapping(self.world_uuid)[self.world_uuid].copy())
+            }
+            self.mappings={}
+            for _type in ['world', 'categories', 'articles']:
+                if self.track_changes[_type]:
+                    logging.info(f"{_type.capitalize()} tracking: ON. Fetching {self.apiobj_rels.find_parent(_type)}-{_type} mapping...")
+                    self.mappings[_type]=wa_mapping_api_generators[_type]
+                else:
+                    logging.info(f"{_type.capitalize()} tracking: OFF.")
         except Exception as e:
-            raise Exception(f"Could not load user-world mapping. {e}")
-    def load_category_mapping(self, track:bool=False):
-        try:
-            if track:
-                logging.info(f"Category tracking: ON. Fetching category mapping...")
-                self.category_mapping=self.client.get_world_categories_mapping(self.world_uuid)
-            else:
-                logging.info(f"Category tracking: OFF.")
-        except Exception as e:
-            raise Exception(f"Could not load category mapping. {e}")
-    def load_articles_mapping(self, track:bool=False):
-        try:
-            if track:
-                logging.info(f"Articles tracking: ON. Fetching article mapping...")
-                
-                category_uuids=self.category_mapping[self.world_uuid].copy()
-                self.articles_mapping=self.client.get_category_articles_mapping(self.world_uuid, category_uuids)
-            else:
-                logging.info(f"Articles tracking: OFF.")
-        except Exception as e:
-            raise Exception(f"Could not load articles mapping. {e}")
+            raise Exception(f"Could not load mapping. {e}")
+
     def get_file_index_per_type(self, _type:str='world'):
         try:
             _file_index={}
@@ -241,10 +228,10 @@ class TrackWorld:
                 case 'world':
                     _file_index={self.world_uuid: 'world'}
                 case 'categories':
-                    _file_index={category_uuid: 'category' for category_uuid in self.category_mapping[self.world_uuid]}
+                    _file_index={category_uuid: 'category' for category_uuid in self.mappings['categories'][self.world_uuid]}
                 case 'articles':
-                    for cat in self.articles_mapping.keys():
-                        _file_index.update({article_uuid: 'article' for article_uuid in self.articles_mapping[cat]})
+                    for cat in self.mappings['articles'].keys():
+                        _file_index.update({article_uuid: 'article' for article_uuid in self.mappings['articles'][cat]})
                 case _:
                     logging.warning(f"Invalid file index type: {_type}")
                     raise Exception(f"Invalid file index type: {_type}")
@@ -339,9 +326,9 @@ def main():
     while datetime.now() < datetime.strptime(QUIT_AT, '%Y-%m-%d %H:%M' ):
         for tr in track_objects:
             tr.update_file_index(gitw)
-            tr.resolve_mapping(gitw, tr.world_mapping, 'world', apimethod=tr.client.get_world) 
-            tr.resolve_mapping(gitw, tr.category_mapping, 'categories', apimethod=tr.client.get_category)
-            tr.resolve_mapping(gitw, tr.articles_mapping, 'articles', apimethod=tr.client.get_article) 
+            tr.resolve_mapping(gitw, tr.mappings['world'], 'world', apimethod=tr.client.get_world) 
+            tr.resolve_mapping(gitw, tr.mappings['categories'], 'categories', apimethod=tr.client.get_category)
+            tr.resolve_mapping(gitw, tr.mappings['articles'], 'articles', apimethod=tr.client.get_article)
 
         time.sleep(PING_INTERVAL_S)
 
