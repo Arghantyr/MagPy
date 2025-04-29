@@ -295,38 +295,6 @@ class TrackWorld:
             logging.info(f">>>> File index updated <<<<")
         except Exception as e:
             raise Exception(f"File index could not be updated. {e}")
-    def resolve_world(self, gitworker:Gitworker=None):
-        try:
-            #uuid=self.world_uuid
-            if self.track_changes['world']:
-                for user_uuid in self.world_mapping:
-                    logging.info(f">>>> Resolving World belonging to User: {user_uuid} <<<<")
-                    worlds_changed=0
-                    for uuid in self.world_mapping[user_uuid]: 
-                        beacon=self.client.get_world(uuid, self.beacon_gran['world'])
-                        logging.info(f">>> Resolving World Object Tracking <<<")
-                        if not gitworker.registries['beacon_hash_reg'].compare_against_entry(identifier=uuid, value=beacon):
-                            logging.info(f">> Beacon hash condition satisfied <<")
-                            gitworker.registries['beacon_hash_reg'].update_entry(identifier=uuid, value=beacon)
-                            content=self.client.get_world(uuid, self.track_gran['world'])
-                            if not gitworker.registries['track_hash_reg'].compare_against_entry(identifier=uuid, value=content):
-                                logging.info(f"> Content hash condition satisfied <")
-
-                                worlds_changed += 1
-
-                                gitworker.update_repo_object(uuid, content)
-                                gitworker.registries['track_hash_reg'].update_entry(identifier=uuid, value=content)
-                                gitworker.update_index_list(uuid)
-                                gitworker.add_to_index()
-                                gitworker.update_commit_message(f"{uuid}: {content['url']}, beacon gran: {self.beacon_gran['world']}, track_gran: {self.track_gran['world']}")
-                if worlds_changed > 0:
-                    gitworker.post_commit(short_commit_message='World update')
-                    gitworker.push_to_remote_repository()
-                    worlds_changed=0
-            else:
-                logging.info(f"World tracking disabled in configuration file.")
-        except Exception as e:
-            raise Exception(f">>> Cannot resolve world. {e}")
 
     def resolve_mapping(self, gitworker:Gitworker=None, mapping:dict={}, objtype:str='world', apimethod=None):
         try:
@@ -362,72 +330,6 @@ class TrackWorld:
         except Exception as e:
             raise Exception(f">>> Cannot resolve {objtype}. {e}")
 
-    def resolve_categories(self, gitworker:Gitworker=None):
-        try:
-            if self.track_changes['categories']:
-                #world_uuid=self.world_uuid
-                #category_uuids=self.category_mapping[self.world_uuid]
-                for world_uuid in self.category_mapping:
-                    logging.info(f">>>> Resolving Categories belonging to World: {world_uuid} <<<<")
-                    categories_changed=0
-                    for uuid in self.category_mapping[world_uuid]: 
-                        beacon=self.client.get_category(uuid, self.beacon_gran['category'])
-                        logging.info(f">>> Resolving Category Object Tracking <<<")
-                        if not gitworker.registries['beacon_hash_reg'].compare_against_entry(identifier=uuid, value=beacon):
-                            logging.info(f">> Beacon hash condition satisfied <<")
-                            gitworker.registries['beacon_hash_reg'].update_entry(identifier=uuid, value=beacon)
-                            content=self.client.get_category(uuid, self.track_gran['category'])
-                            if not gitworker.registries['track_hash_reg'].compare_against_entry(identifier=uuid, value=content):
-                                logging.info(f"> Content hash condition satisfied <")
-
-                                categories_changed += 1
-
-                                gitworker.update_repo_object(uuid, content)
-                                gitworker.registries['track_hash_reg'].update_entry(identifier=uuid, value=content)
-                                gitworker.update_index_list(uuid)
-                                gitworker.add_to_index()
-                                gitworker.update_commit_message(f"{uuid}: {content['url']}, beacon gran: {self.beacon_gran['category']}, track_gran: {self.track_gran['category']}")
-
-                    if categories_changed > 0:
-                        gitworker.post_commit(short_commit_message='Categories update')
-                        gitworker.push_to_remote_repository()
-                        categories_changed=0
-            else:
-                logging.info(f"Categories tracking disabled in configuration file.")
-        except Exception as e:
-            raise Exception(f">>> Cannot resolve categories. {e}")
-    def resolve_articles(self, gitworker:Gitworker=None):
-        try:
-            if self.track_changes['articles']:
-                for cat_uuid in self.articles_mapping:
-                    logging.info(f">>>> Resolving Articles belonging to Category: {cat_uuid} <<<<")
-                    articles_changed=0
-                    for uuid in self.articles_mapping[cat_uuid]:
-                        beacon=self.client.get_article(uuid, self.beacon_gran['article'])
-                        logging.info(f">>> Resolving Article Object Tracking <<<")
-                        if not gitworker.registries['beacon_hash_reg'].compare_against_entry(identifier=uuid, value=beacon):
-                            logging.info(f">> Beacon hash condition satisfied <<")
-                            gitworker.registries['beacon_hash_reg'].update_entry(identifier=uuid, value=beacon)
-                            content=self.client.get_article(uuid, self.track_gran['article'])
-                            if not gitworker.registries['track_hash_reg'].compare_against_entry(identifier=uuid, value=content):
-                                logging.info(f"> Content hash condition satisfied <")
-
-                                articles_changed += 1
-
-                                gitworker.update_repo_object(uuid, content)
-                                gitworker.registries['track_hash_reg'].update_entry(identifier=uuid, value=content)
-                                gitworker.update_index_list(uuid)
-                                gitworker.add_to_index()
-                                gitworker.update_commit_message(f"{uuid}: {content['url']}, beacon gran: {self.beacon_gran['article']}, track_gran: {self.track_gran['article']}")
-
-                    if articles_changed > 0:
-                        gitworker.post_commit(short_commit_message=f'Articles update for Category {cat_uuid}')
-                        gitworker.push_to_remote_repository()
-                        articles_changed=0
-            else:
-                logging.info(f"Articles tracking disabled in configuration file.")
-        except Exception as e:
-            raise Exception(f">>> Cannot resolve articles. {e}")
 
 
 
@@ -439,21 +341,11 @@ def main():
 
     track_objects = [TrackWorld(_world['url'], _world['track_changes'], wacli, WorldAnvilRelationships()) for _world in wa_secrets.worlds_list]
     while datetime.now() < datetime.strptime(QUIT_AT, '%Y-%m-%d %H:%M' ):
-        #for _world in wa_secrets.worlds_list:
         for tr in track_objects:
-            """
-            tr = TrackWorld(_world['url'],
-                            _world['track_changes'],
-                            wacli,
-                            WorldAnvilRelationships())
-            """
             tr.update_file_index(gitw)
-            #tr.resolve_world(gitw)
             tr.resolve_mapping(gitw, tr.world_mapping, 'world', apimethod=tr.client.get_world) 
             tr.resolve_mapping(gitw, tr.category_mapping, 'categories', apimethod=tr.client.get_category)
             tr.resolve_mapping(gitw, tr.articles_mapping, 'articles', apimethod=tr.client.get_article) 
-            #tr.resolve_categories(gitw)
-            #tr.resolve_articles(gitw)
 
         time.sleep(PING_INTERVAL_S)
 
