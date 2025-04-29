@@ -437,12 +437,16 @@ def main():
     wacli=WAClient(application_key=wa_secrets.application_key,
                    authentication_token=wa_secrets.authentication_token)
 
+    track_objects = [TrackWorld(_world['url'], _world['track_changes'], wacli, WorldAnvilRelationships()) for _world in wa_secrets.worlds_list]
     while datetime.now() < datetime.strptime(QUIT_AT, '%Y-%m-%d %H:%M' ):
-        for _world in wa_secrets.worlds_list:
+        #for _world in wa_secrets.worlds_list:
+        for tr in track_objects:
+            """
             tr = TrackWorld(_world['url'],
                             _world['track_changes'],
                             wacli,
                             WorldAnvilRelationships())
+            """
             tr.update_file_index(gitw)
             #tr.resolve_world(gitw)
             tr.resolve_mapping(gitw, tr.world_mapping, 'world', apimethod=tr.client.get_world) 
