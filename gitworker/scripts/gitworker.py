@@ -2,6 +2,7 @@ import Utils
 import BackendUtils
 from APIClients import WAClient
 from APIUtils import WorldAnvilUtils as wau
+from APIRelationships import WorldAnvilRelationships
 from Secrets import WorldAnvilSecrets
 from Schemas import WORLDANVIL_SECRET_SCHEMA
 
@@ -171,11 +172,13 @@ class TrackWorld:
     def __init__(self,
                  url:str='',
                  track_changes:dict={},
-                 client:WAClient=WAClient('', '')):
+                 client:WAClient=WAClient('', ''),
+                 apiobj_rels=None):
         try:
             self.url=url
             self.track_changes=track_changes
             self.client=client
+            self.apiobj_rels=apiobj_rels
             self.load_auth_user_id()
             self.load_world_uuid()
             self.load_user_world_mapping(self.track_changes['world'])
@@ -253,8 +256,8 @@ class TrackWorld:
         try:
             self.track_gran={
                     'world': 1,
-                    'category': 1,
-                    'article': 1
+                    'categories': 1,
+                    'articles': 1
             }
             logging.info(f"Tracking granularities set:\n{json.dumps(self.track_gran, indent=2)}")
         except Exception as e:
@@ -264,8 +267,8 @@ class TrackWorld:
         try:
             self.beacon_gran={
                     'world': 0,
-                    'category': 0,
-                    'article': -1
+                    'categories': 0,
+                    'articles': -1
             }
             logging.info(f"Beacon granularities set:\n{json.dumps(self.beacon_gran, indent=2)}")
             assert all([self.beacon_gran[prop] <= self.track_gran[prop] for prop in self.track_gran.keys()]) == True
@@ -324,6 +327,41 @@ class TrackWorld:
                 logging.info(f"World tracking disabled in configuration file.")
         except Exception as e:
             raise Exception(f">>> Cannot resolve world. {e}")
+
+    def resolve_mapping(self, gitworker:Gitworker=None, mapping:dict={}, objtype:str='world', apimethod=None):
+        try:
+            if self.track_changes[objtype]:
+                for key_uuid in mapping:
+                    logging.info(f">>>> Resolving {objtype.capitalize()}  belonging to {self.apiobj_rels.find_parent(objtype)}: {key_uuid} <<<<")
+                    objs_changed=0
+                    for uuid in mapping[key_uuid]:
+
+                        beacon=apimethod(uuid, self.beacon_gran[objtype])
+                        logging.info(f">>> Resolving {objtype.capitalize()}-type Object Tracking <<<")
+                        if not gitworker.registries['beacon_hash_reg'].compare_against_entry(identifier=uuid, value=beacon):
+                            logging.info(f">> Beacon hash condition satisfied <<")
+                            gitworker.registries['beacon_hash_reg'].update_entry(identifier=uuid, value=beacon)
+
+                            content=apimethod(uuid, self.track_gran[objtype])
+                            if not gitworker.registries['track_hash_reg'].compare_against_entry(identifier=uuid, value=content):
+                                logging.info(f"> Content hash condition satisfied <")
+
+                                objs_changed += 1
+
+                                gitworker.update_repo_object(uuid, content)
+                                gitworker.registries['track_hash_reg'].update_entry(identifier=uuid, value=content)
+                                gitworker.update_index_list(uuid)
+                                gitworker.add_to_index()
+                                gitworker.update_commit_message(f"{uuid}: {content['url']}, beacon gran: {self.beacon_gran[objtype]}, track_gran: {self.track_gran[objtype]}")
+                if objs_changed > 0:
+                    gitworker.post_commit(short_commit_message=f'{objtype.capitalize()} update')
+                    gitworker.push_to_remote_repository()
+                    objs_changed=0
+            else:
+                logging.info(f"{objtype.capitalize()} tracking disabled in configuration file.")
+        except Exception as e:
+            raise Exception(f">>> Cannot resolve {objtype}. {e}")
+
     def resolve_categories(self, gitworker:Gitworker=None):
         try:
             if self.track_changes['categories']:
@@ -399,16 +437,19 @@ def main():
     wacli=WAClient(application_key=wa_secrets.application_key,
                    authentication_token=wa_secrets.authentication_token)
 
-
     while datetime.now() < datetime.strptime(QUIT_AT, '%Y-%m-%d %H:%M' ):
         for _world in wa_secrets.worlds_list:
             tr = TrackWorld(_world['url'],
                             _world['track_changes'],
-                            wacli)
+                            wacli,
+                            WorldAnvilRelationships())
             tr.update_file_index(gitw)
-            tr.resolve_world(gitw)
-            tr.resolve_categories(gitw)
-            tr.resolve_articles(gitw)
+            #tr.resolve_world(gitw)
+            tr.resolve_mapping(gitw, tr.world_mapping, 'world', apimethod=tr.client.get_world) 
+            tr.resolve_mapping(gitw, tr.category_mapping, 'categories', apimethod=tr.client.get_category)
+            tr.resolve_mapping(gitw, tr.articles_mapping, 'articles', apimethod=tr.client.get_article) 
+            #tr.resolve_categories(gitw)
+            #tr.resolve_articles(gitw)
 
         time.sleep(PING_INTERVAL_S)
 
