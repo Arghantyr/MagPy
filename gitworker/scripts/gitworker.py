@@ -1,27 +1,12 @@
-import Utils
 import BackendUtils
 from APIClients import WAClient
-from APIUtils import WorldAnvilUtils as wau
 from APIRelationships import WorldAnvilRelationships
 from Secrets import WorldAnvilSecrets
 from Schemas import WORLDANVIL_SECRET_SCHEMA
 
-import os
 import json
 import time
-import yaml
 from datetime import datetime
-from  pywaclient.api import BoromirApiClient
-from pywaclient.exceptions import (
-        ConnectionException,
-        UnexpectedStatusException,
-        InternalServerException,
-        UnauthorizedRequest,
-        AccessForbidden,
-        ResourceNotFound,
-        UnprocessableDataProvided,
-        FailedRequest
-        )
 import git
 import logging
 import sys
