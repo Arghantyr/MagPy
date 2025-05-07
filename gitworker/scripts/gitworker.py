@@ -298,22 +298,65 @@ class TrackWorld:
         except Exception as e:
             raise Exception(f">>> Cannot resolve {objtype}. {e}")
 
+class TrackObjectService:
+    def __init__(self, gitworker: Gitworker, trackobjs: dict):
+        self.gitworker = gitworker
+        self.trackobjs = trackobjs
 
+    def resolve_mapping(self, identifier: str, mapping: dict = {}, objtype: str = 'world', apimethod=None):
+        try:
+            if identifier not in self.trackobjs:
+                raise Exception(f"TrackWorld object with identifier {identifier} not found.")
+            
+            trackobj = self.trackobjs[identifier]
+            
+            if trackobj.track_changes[objtype]:
+                for key_uuid in mapping:
+                    logging.info(f">>>> Resolving {objtype.capitalize()} belonging to {trackobj.apiobj_rels.find_parent(objtype)}: {key_uuid} <<<<")
+                    objs_changed = 0
+                    for uuid in mapping[key_uuid]:
+                        beacon = apimethod(uuid, trackobj.beacon_gran[objtype])
+                        logging.info(f">>> Resolving {objtype.capitalize()}-type Object Tracking <<<")
+                        if not self.gitworker.registries['beacon_hash_reg'].compare_against_entry(identifier=uuid, value=beacon):
+                            logging.info(f">> Beacon hash condition satisfied <<")
+                            self.gitworker.registries['beacon_hash_reg'].update_entry(identifier=uuid, value=beacon)
+
+                            content = apimethod(uuid, trackobj.track_gran[objtype])
+                            if not self.gitworker.registries['track_hash_reg'].compare_against_entry(identifier=uuid, value=content):
+                                logging.info(f"> Content hash condition satisfied <")
+
+                                objs_changed += 1
+
+                                self.gitworker.update_repo_object(uuid, content)
+                                self.gitworker.registries['track_hash_reg'].update_entry(identifier=uuid, value=content)
+                                self.gitworker.update_index_list(uuid)
+                                self.gitworker.add_to_index()
+                                self.gitworker.update_commit_message(f"{uuid}: {content['url']}, beacon gran: {trackobj.beacon_gran[objtype]}, track_gran: {trackobj.track_gran[objtype]}")
+                    if objs_changed > 0:
+                        self.gitworker.post_commit(short_commit_message=f'{objtype.capitalize()} update')
+                        self.gitworker.push_to_remote_repository()
+                        objs_changed = 0
+            else:
+                logging.info(f"{objtype.capitalize()} tracking disabled in configuration file.")
+        except Exception as e:
+            raise Exception(f">>> Cannot resolve {objtype}. {e}")
 
 
 def main():
-    wa_secrets=WorldAnvilSecrets(SECRET_PATH, WORLDANVIL_SECRET_SCHEMA)
-    gitw=Gitworker(wa_secrets)
-    wacli=WAClient(application_key=wa_secrets.application_key,
-                   authentication_token=wa_secrets.authentication_token)
+    wa_secrets = WorldAnvilSecrets(SECRET_PATH, WORLDANVIL_SECRET_SCHEMA)
+    gitw = Gitworker(wa_secrets)
+    wacli = WAClient(application_key=wa_secrets.application_key,
+                     authentication_token=wa_secrets.authentication_token)
 
-    track_objects = [TrackWorld(_world['url'], _world['track_changes'], wacli, WorldAnvilRelationships()) for _world in wa_secrets.worlds_list]
-    while datetime.now() < datetime.strptime(QUIT_AT, '%Y-%m-%d %H:%M' ):
-        for tr in track_objects:
-            tr.update_file_index(gitw)
-            tr.resolve_mapping(gitw, tr.mappings['world'], 'world', apimethod=tr.client.get_world) 
-            tr.resolve_mapping(gitw, tr.mappings['categories'], 'categories', apimethod=tr.client.get_category)
-            tr.resolve_mapping(gitw, tr.mappings['articles'], 'articles', apimethod=tr.client.get_article)
+    trackobjs = { _world['url']: TrackWorld(_world['url'], _world['track_changes'], wacli, WorldAnvilRelationships()) for _world in wa_secrets.worlds_list }
+    track_service = TrackObjectService(gitworker=gitw, trackobjs=trackobjs)
+
+    while datetime.now() < datetime.strptime(QUIT_AT, '%Y-%m-%d %H:%M'):
+        for identifier, trackobj in track_service.trackobjs.items():
+            trackobj.update_file_index(gitw)
+            track_service.resolve_mapping(identifier, trackobj.mappings['world'], 'world', apimethod=trackobj.client.get_world)
+            track_service.resolve_mapping(identifier, trackobj.mappings['categories'], 'categories', apimethod=trackobj.client.get_category)
+            track_service.resolve_mapping(identifier, trackobj.mappings['articles'], 'articles', apimethod=trackobj.client.get_article)
 
         time.sleep(PING_INTERVAL_S)
 
