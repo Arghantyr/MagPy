@@ -1,5 +1,6 @@
-# Env files
+# Env files and directories
 .env
+init-venv
 
 # Secrets
 .ssh/*

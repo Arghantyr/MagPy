@@ -13,7 +13,13 @@
 
 echo UID="$(id -u)" > ./.env
 echo GID="$(id -g)" >> ./.env
-python3 ./prepare_env.py
+
+python3 -m venv init-venv
+source init-venv/bin/activate
+./init-venv/bin/pip3 install -r ./init-env-requirements.txt
+./init-venv/bin/python3 ./prepare_env.py
+deactivate
+#python3 ./prepare_env.py
 
 mkdir ./gitworker/repo
 chmod u=rwx,go=rx ./gitworker/repo
