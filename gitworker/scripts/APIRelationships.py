@@ -2,8 +2,8 @@
 WORLDANVIL_OBJECT_RELATIONSHIPS = {
         ('user', 'manuscript'),
         ('user', 'world'),
-        ('world', 'articles'),
-        ('world', 'categories')
+        ('world', 'categories'),
+        ('world', 'articles')
 }
 
 class WorldAnvilRelationships:

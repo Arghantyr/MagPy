@@ -26,6 +26,9 @@ class WAClient(object):
                     authentication_token
                     )
             logging.info(f"WAClient object initiated...")
+
+            self.set_granularities()
+            self.load_apimethods_mapping()
         except Exception as e:
             logging.warning(f"Could not initiate WAClient")
             raise Exception(f"{e}")
@@ -67,6 +70,27 @@ class WAClient(object):
                 raise Exception(f"{e}")
         return inner
 
+    def set_granularities(self):
+        try:
+            self.track_gran={
+                    'world': 1,
+                    'categories': 1,
+                    'articles': 1
+            }
+            logging.info(f"Tracking granularities set:\n{json.dumps(self.track_gran, indent=2)}")
+
+            self.beacon_gran={
+                    'world': 0,
+                    'categories': 0,
+                    'articles': -1
+            }
+            logging.info(f"Beacon granularities set:\n{json.dumps(self.beacon_gran, indent=2)}")
+            assert all([self.beacon_gran[prop] <= self.track_gran[prop] for prop in self.track_gran.keys()]) == True
+        except AssertionError:
+            raise Exception("Invalid granularity settings. Beacon must be <= than Track.")
+        except Exception as e:
+            logging.warning(f"Could not set granularities: {e}")
+            raise Exception(f"{e}")
 
     @wau.endpoint_exceptions_wrapper
     def get_auth_user_id(self):
@@ -100,6 +124,18 @@ class WAClient(object):
     def get_article(self, uuid:str='', granularity:int=-1):
         logging.info(f"Article object fetched. UUID: {uuid}, GRANULARITY: {granularity}")
         return self.client.article.get(uuid, granularity)
+    
+    def load_apimethods_mapping(self):
+        try:
+            self.apimethods_mapping={
+                    'world': self.get_world,
+                    'categories': self.get_category,
+                    'articles': self.get_article
+            }
+            logging.info(f"API methods mapping loaded")
+        except Exception as e:
+            logging.warning(f"Could not load API methods mapping: {e}")
+            raise Exception(f"{e}")
 
     @wau.endpoint_exceptions_wrapper
     @verify_uuid
@@ -116,5 +152,25 @@ class WAClient(object):
                                     ] for cat_uuid in category_uuids}
         logging.info(f"Fetched category-article mapping for world {uuid}:\n{json.dumps(articles_mapping, indent=2)}")
         return articles_mapping
-
-
+    
+    @wau.endpoint_exceptions_wrapper
+    def get_user_worlds_mapping(self, uuid: str = ''):
+        user_uuid = self.get_auth_user_id()['id']
+        worlds = [world['id'] for world in self.get_user_worlds(user_uuid)]
+        if uuid:
+            worlds = [uuid] if uuid in worlds else []
+        logging.info(f"Fetched worlds mapping for user {user_uuid}: {', '.join(worlds)}")
+        return {user_uuid: worlds}
+    
+    @wau.endpoint_exceptions_wrapper
+    def get_mapping(self, uuid: str, _type: str, *args, **kwargs):
+        if _type not in ['world', 'categories', 'articles']:
+            raise ValueError(f"Invalid type '{_type}'. Supported types are: world, categories, articles")
+        
+        mapping_methods = {
+            'world': lambda: self.get_user_worlds_mapping(uuid, *args, **kwargs),
+            'categories': lambda: self.get_world_categories_mapping(uuid, *args, **kwargs),
+            'articles': lambda: self.get_category_articles_mapping(uuid, *args, **kwargs)
+        }
+        logging.info(f"Fetching mapping for type '{_type}' with UUID: {uuid}")
+        return mapping_methods[_type]()
