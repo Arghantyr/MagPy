@@ -2,7 +2,7 @@
 pywaclient == 1.6.8
 
 # git management
-GitPython ~> 3.1.47
+GitPython ~> 3.2.1
 
 # YAML (secrets) loaders
 PyYAML == 6.0.2
